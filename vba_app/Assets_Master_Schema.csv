@@ -1,0 +1,30 @@
+Table,Column,AccessType,Required,Notes
+Assets_Master,Barcode,TEXT(64) PRIMARY KEY,Yes,Scanner value. Unique asset tag. Stored uppercase.
+Assets_Master,Ownership,TEXT(32),Yes,"AMD-Specific or Wipro-Specific"
+Assets_Master,AssetType,TEXT(64),Yes,"Motherboard; Add-in Card; Debugger; SoC Board; Power Supply; Cable; Other"
+Assets_Master,Manufacturer,TEXT(120),No,Optional metadata
+Assets_Master,MfsSerialNo,TEXT(64),No,Manufacturer serial number
+Assets_Master,Make,TEXT(80),No,Often filled from a sibling barcode with the same family prefix
+Assets_Master,Model,TEXT(80),No,Sibling or exact model match can pre-fill related fields
+Assets_Master,Capacity_Rev,TEXT(80),No,Capacity or board revision
+Assets_Master,Description,MEMO,No,Product description
+Assets_Master,PONumber,TEXT(64),Yes,Purchase order number
+Assets_Master,ArrivalDate,DATETIME,No,YYYY-MM-DD
+Assets_Master,ExpiryDate,DATETIME,No,Warranty or calibration expiry. YYYY-MM-DD
+Assets_Master,CurrentAssigneeID,TEXT(32),No,Blank while the asset is in the lab cage
+Assets_Master,CurrentAssigneeName,TEXT(120),No,Copied from User_Directory at assign time
+Assets_Master,Status,TEXT(40),Yes,"Available in Lab; Assigned to Engineer; Under Maintenance; Scrapped/Returned"
+Assets_Master,CreatedBy,TEXT(32),Yes,Employee ID that inwarded the row
+Assets_Master,CreatedAt,DATETIME,Yes,Set by the database clock
+Transfer_Audit_Log,LogID,COUNTER PRIMARY KEY,Yes,Access AutoNumber
+Transfer_Audit_Log,Timestamp,DATETIME,Yes,Transfer time
+Transfer_Audit_Log,AssetBarcode,TEXT(64),Yes,Asset that moved
+Transfer_Audit_Log,PreviousAssigneeID,TEXT(32),No,Blank on first issue from the cage
+Transfer_Audit_Log,NewAssigneeID,TEXT(32),No,Blank when returned to the cage or scrapped
+Transfer_Audit_Log,TransferredBy_AdminID,TEXT(32),Yes,Custodian who recorded the move
+Transfer_Audit_Log,Remarks,MEMO,No,Required in the form when status becomes Scrapped/Returned
+User_Directory,EmpID,TEXT(32) PRIMARY KEY,Yes,Employee ID. Stored uppercase.
+User_Directory,EmpName,TEXT(120),Yes,Display name
+User_Directory,Role,TEXT(32),Yes,"Super Admin; Admin; User. Self-registration always creates User."
+User_Directory,AccessCode,TEXT(32),Yes,Lab access code. Do not reuse a Windows or email password.
+User_Directory,Active,YESNO,Yes,Inactive IDs cannot sign in

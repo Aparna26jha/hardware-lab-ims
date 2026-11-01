@@ -1,0 +1,617 @@
+Hardware Lab IMS user-form code
+On Windows Excel, import the matching .frm file instead of pasting,
+unless the import is blocked. Import steps are in docs/WINDOWS_EXCEL_SETUP.md.
+
+==============================================================================
+frmAuth.frm
+VBA editor: File > Import File, and choose this .frm.
+==============================================================================
+Option Explicit
+
+Private Sub UserForm_Initialize()
+    Me.Caption = "Hardware Lab IMS - Sign in"
+    lblTitle.Font.Bold = True
+    lblTitle.Font.Size = 16
+    txtAccessCode.PasswordChar = "*"
+    txtEmpID.MaxLength = 32
+    txtAccessCode.MaxLength = 32
+    btnFillSuper.Visible = IMS_SHOW_DEMO_FILL
+    btnFillAdmin.Visible = IMS_SHOW_DEMO_FILL
+    btnFillUser.Visible = IMS_SHOW_DEMO_FILL
+    lblMessage.Caption = ""
+End Sub
+
+Private Sub UserForm_Activate()
+    On Error Resume Next
+    txtEmpID.SetFocus
+End Sub
+
+Private Sub btnLogin_Click()
+    If IMS_TryLogin(txtEmpID.Text, txtAccessCode.Text) Then
+        Me.Hide
+    Else
+        IMS_Flash lblMessage, gLastError, True
+    End If
+End Sub
+
+Private Sub btnRegister_Click()
+    frmRegister.Show
+End Sub
+
+Private Sub btnFillSuper_Click()
+    txtEmpID.Text = "SA001"
+    txtAccessCode.Text = "1001"
+    lblMessage.Caption = ""
+End Sub
+
+Private Sub btnFillAdmin_Click()
+    txtEmpID.Text = "AD010"
+    txtAccessCode.Text = "2001"
+    lblMessage.Caption = ""
+End Sub
+
+Private Sub btnFillUser_Click()
+    txtEmpID.Text = "EN1042"
+    txtAccessCode.Text = "3001"
+    lblMessage.Caption = ""
+End Sub
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = vbFormControlMenu Then
+        IMS_SignOut
+        Me.Hide
+        Cancel = True
+    End If
+End Sub
+
+==============================================================================
+frmDashboard.frm
+VBA editor: File > Import File, and choose this .frm.
+==============================================================================
+Option Explicit
+
+Private Sub UserForm_Initialize()
+    lblWho.Font.Bold = True
+    IMS_FillCombo cboOwnership, IMS_OwnershipList(), True
+    IMS_FillCombo cboStatus, IMS_StatusList(), True
+    IMS_FillCombo cboType, IMS_AssetTypeList(), True
+    lstAssets.ColumnCount = 8
+    lstAssets.ColumnWidths = "110 pt;115 pt;100 pt;90 pt;100 pt;130 pt;80 pt;140 pt"
+    btnInward.Visible = IMS_IsCustodianRole(gRole)
+    btnTransfer.Visible = IMS_IsCustodianRole(gRole)
+    btnUsers.Visible = IMS_IsSuperRole(gRole)
+    btnReset.Visible = IMS_IsSuperRole(gRole)
+    btnExportAudit.Visible = IMS_IsCustodianRole(gRole)
+    If gRole = "User" Then
+        lblWho.Caption = gEmpName & "  (" & gEmpID & ")  Engineer view - your assigned assets only"
+    Else
+        lblWho.Caption = gEmpName & "  (" & gEmpID & ")  " & gRole
+    End If
+End Sub
+
+Private Sub UserForm_Activate()
+    LoadAssets
+End Sub
+
+Private Sub btnRefresh_Click()
+    LoadAssets
+End Sub
+
+Private Sub cboOwnership_Change()
+    LoadAssets
+End Sub
+
+Private Sub cboStatus_Change()
+    LoadAssets
+End Sub
+
+Private Sub cboType_Change()
+    LoadAssets
+End Sub
+
+Private Sub txtSearch_AfterUpdate()
+    LoadAssets
+End Sub
+
+Private Sub btnInward_Click()
+    frmInward.Show
+End Sub
+
+Private Sub btnTransfer_Click()
+    frmTransfer.Show
+End Sub
+
+Private Sub btnUsers_Click()
+    frmUserAdmin.Show
+End Sub
+
+Private Sub btnSignOut_Click()
+    IMS_SignOut
+    Me.Hide
+End Sub
+
+Private Sub btnReset_Click()
+    IMS_ResetBackend
+    LoadAssets
+End Sub
+
+Private Sub btnExport_Click()
+    Dim data As Variant
+    Dim path As Variant
+    data = CurrentRows()
+    path = IMS_SuggestExportPath("LabInventory")
+    If VarType(path) = vbBoolean Then Exit Sub
+    On Error GoTo Fail
+    IMS_WriteCsv CStr(path), IMS_AssetHeaders(), data
+    IMS_Flash lblMessage, "Inventory snapshot written to " & CStr(path), False
+    Exit Sub
+Fail:
+    IMS_Flash lblMessage, Err.Description, True
+End Sub
+
+Private Sub btnExportAudit_Click()
+    Dim assets As Variant
+    Dim auditRows As Variant
+    Dim filtered As Variant
+    Dim path As Variant
+    Dim wanted As Object
+    Dim r As Long
+    Dim kept As Long
+    Dim i As Long
+    assets = CurrentRows()
+    auditRows = IMS_QueryAudit()
+    If gLastError <> "" And IsEmpty(auditRows) Then
+        IMS_Flash lblMessage, gLastError, True
+        Exit Sub
+    End If
+    Set wanted = CreateObject("Scripting.Dictionary")
+    wanted.CompareMode = 1
+    If IsArray(assets) Then
+        For r = 1 To UBound(assets, 1)
+            wanted(CStr(assets(r, 1))) = True
+        Next r
+    End If
+    If Not IsArray(auditRows) Then
+        filtered = Empty
+    Else
+        kept = 0
+        For r = 1 To UBound(auditRows, 1)
+            If wanted.Exists(CStr(auditRows(r, 3))) Then kept = kept + 1
+        Next r
+        If kept = 0 Then
+            filtered = Empty
+        Else
+            ReDim filtered(1 To kept, 1 To 7)
+            i = 0
+            For r = 1 To UBound(auditRows, 1)
+                If wanted.Exists(CStr(auditRows(r, 3))) Then
+                    i = i + 1
+                    Dim c As Long
+                    For c = 1 To 7
+                        filtered(i, c) = auditRows(r, c)
+                    Next c
+                End If
+            Next r
+        End If
+    End If
+    path = IMS_SuggestExportPath("LabAudit")
+    If VarType(path) = vbBoolean Then Exit Sub
+    On Error GoTo Fail
+    IMS_WriteCsv CStr(path), IMS_AuditHeaders(), filtered
+    IMS_Flash lblMessage, "Audit snapshot for the assets on screen written to " & CStr(path), False
+    Exit Sub
+Fail:
+    IMS_Flash lblMessage, Err.Description, True
+End Sub
+
+Private Sub LoadAssets()
+    Dim data As Variant
+    Dim r As Long
+    Dim c As Long
+    On Error GoTo Fail
+    data = CurrentRows()
+    lstAssets.Clear
+    lstAssets.ColumnCount = 8
+    If Not IsArray(data) Then
+        lblCount.Caption = "0 assets"
+        Exit Sub
+    End If
+    For r = 1 To UBound(data, 1)
+        lstAssets.AddItem CStr(data(r, 1))
+        For c = 2 To 8
+            lstAssets.List(lstAssets.ListCount - 1, c - 1) = CStr(data(r, c))
+        Next c
+    Next r
+    lblCount.Caption = CStr(UBound(data, 1)) & " assets"
+    Exit Sub
+Fail:
+    lblCount.Caption = "0 assets"
+    IMS_Flash lblMessage, Err.Description, True
+End Sub
+
+Private Function CurrentRows() As Variant
+    CurrentRows = IMS_QueryAssets(cboOwnership.Value, cboStatus.Value, cboType.Value, txtSearch.Text, "")
+End Function
+
+Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
+    If CloseMode = vbFormControlMenu Then
+        IMS_SignOut
+        Me.Hide
+        Cancel = True
+    End If
+End Sub
+
+==============================================================================
+frmInward.frm
+VBA editor: File > Import File, and choose this .frm.
+==============================================================================
+Option Explicit
+
+Private mExisting As Boolean
+
+Private Sub UserForm_Initialize()
+    If Not IMS_IsCustodianRole(gRole) Then
+        MsgBox "Only inventory custodians can inward hardware.", vbExclamation, IMS_APP_NAME
+        Unload Me
+        Exit Sub
+    End If
+    lblTitle.Font.Bold = True
+    lblTitle.Font.Size = 16
+    IMS_FillCombo cboAssetType, IMS_AssetTypeList(), False
+    txtBarcode.MaxLength = 64
+    txtInitialAssignee.MaxLength = 32
+    ClearForm
+End Sub
+
+Private Sub UserForm_Activate()
+    On Error Resume Next
+    txtBarcode.SetFocus
+End Sub
+
+Private Sub txtBarcode_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        KeyCode = 0
+        ApplyBarcode
+    End If
+End Sub
+
+Private Sub txtModel_AfterUpdate()
+    Dim hint As Object
+    If mExisting Then Exit Sub
+    If Trim$(txtModel.Text) = "" Then Exit Sub
+    Set hint = IMS_SuggestFromModel(txtModel.Text)
+    FillEmpty hint
+End Sub
+
+Private Sub btnSave_Click()
+    Dim fields As Object
+    Set fields = CollectFields()
+    If mExisting Then
+        If IMS_UpdateAssetMetadata(fields) Then
+            IMS_Flash lblMessage, "Metadata updated for " & fields("Barcode") & ". Assignee and status were left unchanged.", False
+        Else
+            IMS_Flash lblMessage, gLastError, True
+        End If
+    Else
+        If IMS_SaveNewAsset(fields) Then
+            IMS_Flash lblMessage, "Inward saved for " & fields("Barcode") & ".", False
+            ClearForm
+        Else
+            IMS_Flash lblMessage, gLastError, True
+        End If
+    End If
+End Sub
+
+Private Sub btnClear_Click()
+    ClearForm
+End Sub
+
+Private Sub btnClose_Click()
+    Unload Me
+End Sub
+
+Private Sub ApplyBarcode()
+    Dim code As String
+    Dim asset As Object
+    Dim hint As Object
+    code = IMS_NormalizeBarcode(txtBarcode.Text)
+    txtBarcode.Text = code
+    If code = "" Then Exit Sub
+    If Not IMS_ValidBarcode(code) Then
+        IMS_Flash lblMessage, "Barcode must be 4 to 64 letters, digits, hyphens, or underscores.", True
+        Exit Sub
+    End If
+    Set asset = IMS_GetAsset(code)
+    If Not asset Is Nothing Then
+        mExisting = True
+        FillFromAsset asset
+        IMS_Flash lblMessage, "This barcode is already on file. Saving updates metadata only. Use Transfer to change the assignee.", False
+        Exit Sub
+    End If
+    mExisting = False
+    txtInitialAssignee.Enabled = True
+    Set hint = IMS_SuggestFromBarcode(code)
+    FillEmpty hint
+    If hint.Exists("Model") Then
+        IMS_Flash lblMessage, "New barcode. Empty fields were filled from the latest " & IMS_FamilyPrefix(code) & " asset.", False
+    Else
+        IMS_Flash lblMessage, "New barcode. Fill the purchase order before saving.", False
+    End If
+End Sub
+
+Private Sub FillFromAsset(ByVal asset As Object)
+    SetOwnership DictStr(asset, "Ownership")
+    cboAssetType.Value = DictStr(asset, "AssetType")
+    txtPONumber.Text = DictStr(asset, "PONumber")
+    txtManufacturer.Text = DictStr(asset, "Manufacturer")
+    txtMfsSerialNo.Text = DictStr(asset, "MfsSerialNo")
+    txtMake.Text = DictStr(asset, "Make")
+    txtModel.Text = DictStr(asset, "Model")
+    txtCapacityRev.Text = DictStr(asset, "Capacity_Rev")
+    txtDescription.Text = DictStr(asset, "Description")
+    txtArrivalDate.Text = DateOnly(DictStr(asset, "ArrivalDate"))
+    txtExpiryDate.Text = DateOnly(DictStr(asset, "ExpiryDate"))
+    txtInitialAssignee.Text = DictStr(asset, "CurrentAssigneeID")
+    txtInitialAssignee.Enabled = False
+End Sub
+
+Private Sub FillEmpty(ByVal hint As Object)
+    If hint Is Nothing Then Exit Sub
+    If Len(Trim$(cboAssetType.Value & "")) = 0 And hint.Exists("AssetType") Then cboAssetType.Value = hint("AssetType")
+    If txtManufacturer.Text = "" And hint.Exists("Manufacturer") Then txtManufacturer.Text = hint("Manufacturer")
+    If txtMake.Text = "" And hint.Exists("Make") Then txtMake.Text = hint("Make")
+    If txtModel.Text = "" And hint.Exists("Model") Then txtModel.Text = hint("Model")
+    If txtCapacityRev.Text = "" And hint.Exists("Capacity_Rev") Then txtCapacityRev.Text = hint("Capacity_Rev")
+End Sub
+
+Private Function CollectFields() As Object
+    Dim d As Object
+    Set d = CreateObject("Scripting.Dictionary")
+    d.CompareMode = 1
+    d("Barcode") = txtBarcode.Text
+    If optAMD.Value Then
+        d("Ownership") = "AMD-Specific"
+    ElseIf optWipro.Value Then
+        d("Ownership") = "Wipro-Specific"
+    Else
+        d("Ownership") = ""
+    End If
+    d("AssetType") = cboAssetType.Value
+    d("PONumber") = txtPONumber.Text
+    d("Manufacturer") = txtManufacturer.Text
+    d("MfsSerialNo") = txtMfsSerialNo.Text
+    d("Make") = txtMake.Text
+    d("Model") = txtModel.Text
+    d("Capacity_Rev") = txtCapacityRev.Text
+    d("Description") = txtDescription.Text
+    d("ArrivalDate") = txtArrivalDate.Text
+    d("ExpiryDate") = txtExpiryDate.Text
+    d("AssigneeID") = txtInitialAssignee.Text
+    Set CollectFields = d
+End Function
+
+Private Sub SetOwnership(ByVal value As String)
+    optAMD.Value = (value = "AMD-Specific")
+    optWipro.Value = (value = "Wipro-Specific")
+End Sub
+
+Private Sub ClearForm()
+    mExisting = False
+    txtBarcode.Text = ""
+    optAMD.Value = False
+    optWipro.Value = False
+    cboAssetType.ListIndex = -1
+    txtPONumber.Text = ""
+    txtManufacturer.Text = ""
+    txtMfsSerialNo.Text = ""
+    txtMake.Text = ""
+    txtModel.Text = ""
+    txtCapacityRev.Text = ""
+    txtDescription.Text = ""
+    txtArrivalDate.Text = ""
+    txtExpiryDate.Text = ""
+    txtInitialAssignee.Text = ""
+    txtInitialAssignee.Enabled = True
+    IMS_Flash lblMessage, "Scan a barcode. The scanner Enter key looks the tag up.", False
+End Sub
+
+Private Function DictStr(ByVal d As Object, ByVal key As String) As String
+    If d Is Nothing Then Exit Function
+    If Not d.Exists(key) Then Exit Function
+    If IsNull(d(key)) Then Exit Function
+    DictStr = Trim$(CStr(d(key)))
+End Function
+
+Private Function DateOnly(ByVal value As String) As String
+    If Len(value) >= 10 Then DateOnly = Left$(value, 10) Else DateOnly = value
+End Function
+
+==============================================================================
+frmRegister.frm
+VBA editor: File > Import File, and choose this .frm.
+==============================================================================
+Option Explicit
+
+Private Sub UserForm_Initialize()
+    lblTitle.Font.Bold = True
+    lblTitle.Font.Size = 16
+    txtEmpID.MaxLength = 32
+    txtEmpName.MaxLength = 120
+    txtAccessCode.MaxLength = 32
+    txtConfirm.MaxLength = 32
+    txtAccessCode.PasswordChar = "*"
+    txtConfirm.PasswordChar = "*"
+End Sub
+
+Private Sub btnCreate_Click()
+    If IMS_RegisterUser(txtEmpID.Text, txtEmpName.Text, txtAccessCode.Text, txtConfirm.Text) Then
+        MsgBox "Account created. Sign in with employee ID " & UCase$(Trim$(txtEmpID.Text)) & ".", vbInformation, IMS_APP_NAME
+        Unload Me
+    Else
+        IMS_Flash lblMessage, gLastError, True
+    End If
+End Sub
+
+Private Sub btnBack_Click()
+    Unload Me
+End Sub
+
+==============================================================================
+frmTransfer.frm
+VBA editor: File > Import File, and choose this .frm.
+==============================================================================
+Option Explicit
+
+Private mLoaded As Boolean
+
+Private Sub UserForm_Initialize()
+    If Not IMS_IsCustodianRole(gRole) Then
+        MsgBox "Only inventory custodians can transfer hardware.", vbExclamation, IMS_APP_NAME
+        Unload Me
+        Exit Sub
+    End If
+    lblTitle.Font.Bold = True
+    lblTitle.Font.Size = 16
+    IMS_FillCombo cboStatus, IMS_StatusList(), False
+    cboStatus.Value = "Assigned to Engineer"
+    txtBarcode.MaxLength = 64
+    txtNewEmpID.MaxLength = 32
+    ClearView
+End Sub
+
+Private Sub UserForm_Activate()
+    On Error Resume Next
+    txtBarcode.SetFocus
+End Sub
+
+Private Sub txtBarcode_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        KeyCode = 0
+        LoadAsset
+    End If
+End Sub
+
+Private Sub btnTransfer_Click()
+    If Not mLoaded Then
+        IMS_Flash lblMessage, "Scan a barcode first.", True
+        Exit Sub
+    End If
+    If IMS_TransferAsset(txtBarcode.Text, txtNewEmpID.Text, txtRemarks.Text, cboStatus.Value) Then
+        IMS_Flash lblMessage, "Transfer recorded for " & IMS_NormalizeBarcode(txtBarcode.Text) & ".", False
+        LoadAsset
+        txtNewEmpID.Text = ""
+        txtRemarks.Text = ""
+    Else
+        IMS_Flash lblMessage, gLastError, True
+    End If
+End Sub
+
+Private Sub btnClose_Click()
+    Unload Me
+End Sub
+
+Private Sub LoadAsset()
+    Dim asset As Object
+    Dim code As String
+    code = IMS_NormalizeBarcode(txtBarcode.Text)
+    txtBarcode.Text = code
+    Set asset = IMS_GetAsset(code)
+    If asset Is Nothing Then
+        mLoaded = False
+        lblOwnership.Caption = "Ownership:"
+        lblType.Caption = "Type / model:"
+        lblCurrent.Caption = "Current assignee:"
+        lblState.Caption = "Status:"
+        IMS_Flash lblMessage, "Barcode " & code & " is not in the lab database.", True
+        Exit Sub
+    End If
+    mLoaded = True
+    lblOwnership.Caption = "Ownership: " & DictStr(asset, "Ownership")
+    lblType.Caption = "Type / model: " & DictStr(asset, "AssetType") & "  " & DictStr(asset, "Model")
+    If DictStr(asset, "CurrentAssigneeID") = "" Then
+        lblCurrent.Caption = "Current assignee: (in lab cage)"
+    Else
+        lblCurrent.Caption = "Current assignee: " & DictStr(asset, "CurrentAssigneeID") & "  " & DictStr(asset, "CurrentAssigneeName")
+    End If
+    lblState.Caption = "Status: " & DictStr(asset, "Status")
+    IMS_Flash lblMessage, "Asset loaded. Choose the new status and record the transfer.", False
+End Sub
+
+Private Sub ClearView()
+    mLoaded = False
+    lblOwnership.Caption = "Ownership:"
+    lblType.Caption = "Type / model:"
+    lblCurrent.Caption = "Current assignee:"
+    lblState.Caption = "Status:"
+    IMS_Flash lblMessage, "Scan a barcode. Enter loads the current assignee.", False
+End Sub
+
+Private Function DictStr(ByVal d As Object, ByVal key As String) As String
+    If d Is Nothing Then Exit Function
+    If Not d.Exists(key) Then Exit Function
+    If IsNull(d(key)) Then Exit Function
+    DictStr = Trim$(CStr(d(key)))
+End Function
+
+==============================================================================
+frmUserAdmin.frm
+VBA editor: File > Import File, and choose this .frm.
+==============================================================================
+Option Explicit
+
+Private Sub UserForm_Initialize()
+    If Not IMS_IsSuperRole(gRole) Then
+        MsgBox "Only a Super Admin can manage accounts.", vbExclamation, IMS_APP_NAME
+        Unload Me
+        Exit Sub
+    End If
+    lblTitle.Font.Bold = True
+    lblTitle.Font.Size = 16
+    IMS_FillCombo cboRole, IMS_RoleList(), False
+    lstUsers.ColumnCount = 4
+    lstUsers.ColumnWidths = "90 pt;220 pt;120 pt;60 pt"
+    LoadUsers
+End Sub
+
+Private Sub lstUsers_Click()
+    If lstUsers.ListIndex < 0 Then Exit Sub
+    lblSelected.Caption = CStr(lstUsers.List(lstUsers.ListIndex, 0)) & "  " & CStr(lstUsers.List(lstUsers.ListIndex, 1))
+    cboRole.Value = CStr(lstUsers.List(lstUsers.ListIndex, 2))
+    chkActive.Value = (CStr(lstUsers.List(lstUsers.ListIndex, 3)) = "Yes")
+End Sub
+
+Private Sub btnApply_Click()
+    Dim empId As String
+    If lstUsers.ListIndex < 0 Then
+        IMS_Flash lblMessage, "Select an account first.", True
+        Exit Sub
+    End If
+    empId = CStr(lstUsers.List(lstUsers.ListIndex, 0))
+    If IMS_SetUserRole(empId, cboRole.Value, CBool(chkActive.Value)) Then
+        IMS_Flash lblMessage, "Saved " & empId & ".", False
+        LoadUsers
+    Else
+        IMS_Flash lblMessage, gLastError, True
+    End If
+End Sub
+
+Private Sub btnClose_Click()
+    Unload Me
+End Sub
+
+Private Sub LoadUsers()
+    Dim data As Variant
+    Dim r As Long
+    Dim c As Long
+    data = IMS_ListUsers()
+    lstUsers.Clear
+    lstUsers.ColumnCount = 4
+    If Not IsArray(data) Then Exit Sub
+    For r = 1 To UBound(data, 1)
+        lstUsers.AddItem CStr(data(r, 1))
+        For c = 2 To 4
+            lstUsers.List(lstUsers.ListCount - 1, c - 1) = CStr(data(r, c))
+        Next c
+    Next r
+End Sub
+

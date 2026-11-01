@@ -1,0 +1,12 @@
+Paste this into the ThisWorkbook code window (Alt+F11, double-click ThisWorkbook).
+Do not import this file as a module. Excel already has a ThisWorkbook object.
+
+Private Sub Workbook_Open()
+    On Error Resume Next
+    ThisWorkbook.Worksheets("Config").Visible = xlSheetVeryHidden
+    On Error GoTo OpenFail
+    IMS_Start
+    Exit Sub
+OpenFail:
+    MsgBox "Hardware Lab IMS did not start." & vbCrLf & Err.Description, vbCritical, "Hardware Lab IMS"
+End Sub

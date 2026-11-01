@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Hardware Lab IMS</title>
+  <style>
+    :root {
+      --bg: #e6eeea;
+      --ink: #17211c;
+      --muted: #5c6b64;
+      --panel: #f8fbf9;
+      --line: #c5d4cc;
+      --teal: #0c5c56;
+      --teal-deep: #083f3b;
+      --chip: #e7f3f1;
+      --amd: #7c2430;
+      --amd-bg: #f8e8ea;
+      --wipro: #1d4e89;
+      --wipro-bg: #e7eef8;
+      --danger: #8d2d2d;
+      --ok: #146b45;
+      --warn: #8a5a12;
+      --shadow: 0 16px 40px rgba(23, 33, 28, 0.08);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 400px at 10% -10%, #f4faf7 0%, transparent 50%),
+        linear-gradient(180deg, #dfeae4 0%, var(--bg) 220px);
+      font: 15px/1.45 "Segoe UI", "Avenir Next", "Helvetica Neue", sans-serif;
+    }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .wrap { width: min(1180px, calc(100% - 28px)); margin: 0 auto; }
+    .auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 28px 14px; }
+    .card {
+      width: min(460px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 28px 26px 22px;
+    }
+    .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
+    .mark {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: var(--teal-deep); color: #f4fffc;
+      display: grid; place-items: center; font-weight: 700; letter-spacing: 0.04em;
+    }
+    h1 { font-size: 22px; line-height: 1.2; margin: 0; }
+    h2 { font-size: 18px; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin: 6px 0 18px; }
+    label { display: block; font-size: 13px; font-weight: 650; margin: 12px 0 6px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(12, 92, 86, 0.15); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .btn {
+      border: 1px solid transparent;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: var(--teal);
+      color: #f4fffc;
+      font-weight: 650;
+    }
+    .btn.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+    .btn.danger { background: #fff; color: var(--danger); border-color: #e4c4c4; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .status { min-height: 1.3em; margin: 12px 0 0; font-size: 14px; }
+    .status.bad { color: var(--danger); }
+    .status.good { color: var(--ok); }
+    .demo { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .demo button { background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; }
+    .fine { color: var(--muted); font-size: 12px; margin-top: 16px; }
+    header.app {
+      background: var(--teal-deep);
+      color: #f3fbf8;
+      padding: 16px 0 14px;
+    }
+    header.app .wrap { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+    header.app p { margin: 2px 0 0; color: #c9e3de; font-size: 13px; }
+    header.app h1 { font-size: 20px; }
+    .who { text-align: right; }
+    .who strong { display: block; }
+    nav.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+    nav.tabs button[aria-selected="true"] { background: var(--teal); color: white; border-color: var(--teal); }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 28px;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+    .span-2 { grid-column: span 2; }
+    .choices { display: flex; gap: 16px; align-items: center; padding-top: 8px; }
+    .choices label { margin: 0; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 12px; letter-spacing: 0.02em; color: var(--muted); font-weight: 700; }
+    .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; }
+    .pill { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 700; }
+    .pill.amd { background: var(--amd-bg); color: var(--amd); }
+    .pill.wipro { background: var(--wipro-bg); color: var(--wipro); }
+    .filters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+    .user-pick { background: #fff; }
+    .user-pick[aria-current="true"] { outline: 2px solid var(--teal); }
+    @media (max-width: 800px) {
+      .grid, .filters { grid-template-columns: 1fr; }
+      .span-2 { grid-column: auto; }
+      header.app .wrap, .who { text-align: left; display: block; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="application/json" id="seed-data">
+{
+  "users": [
+    {
+      "empId": "SA001",
+      "name": "Sample Super Admin",
+      "role": "Super Admin",
+      "accessCode": "1001",
+      "active": true
+    },
+    {
+      "empId": "AD010",
+      "name": "Sample Inventory Custodian",
+      "role": "Admin",
+      "accessCode": "2001",
+      "active": true
+    },
+    {
+      "empId": "EN1042",
+      "name": "Sample Validation Engineer",
+      "role": "User",
+      "accessCode": "3001",
+      "active": true
+    },
+    {
+      "empId": "EN1108",
+      "name": "Sample Signal Engineer",
+      "role": "User",
+      "accessCode": "3002",
+      "active": true
+    }
+  ],
+  "assets": [
+    {
+      "barcode": "MB-7800X-001",
+      "ownership": "AMD-Specific",
+      "assetType": "Motherboard",
+      "manufacturer": "Supermicro",
+      "mfsSerialNo": "SM-H13-10021",
+      "make": "Supermicro",
+      "model": "H13SSL",
+      "capacityRev": "Rev 1.01",
+      "description": "SP5 validation motherboard for Genoa bring-up",
+      "poNumber": "PO-AMD-24011",
+      "arrivalDate": "2026-08-14",
+      "expiryDate": "2029-08-14",
+      "assigneeId": "EN1042",
+      "assigneeName": "Sample Validation Engineer",
+      "status": "Assigned to Engineer"
+    },
+    {
+      "barcode": "MB-7800X-002",
+      "ownership": "AMD-Specific",
+      "assetType": "Motherboard",
+      "manufacturer": "Supermicro",
+      "mfsSerialNo": "SM-H13-10022",
+      "make": "Supermicro",
+      "model": "H13SSL",
+      "capacityRev": "Rev 1.01",
+      "description": "Spare SP5 validation motherboard",
+      "poNumber": "PO-AMD-24011",
+      "arrivalDate": "2026-08-14",
+      "expiryDate": "2029-08-14",
+      "assigneeId": "",
+      "assigneeName": "",
+      "status": "Available in Lab"
+    },
+    {
+      "barcode": "SOC-MI300-014",
+      "ownership": "AMD-Specific",
+      "assetType": "SoC Board",
+      "manufacturer": "AMD",
+      "mfsSerialNo": "MI300-VAL-014",
+      "make": "AMD",
+      "model": "MI300X-VAL",
+      "capacityRev": "A1",
+      "description": "MI300 validation socket board",
+      "poNumber": "PO-AMD-25102",
+      "arrivalDate": "2026-09-02",
+      "expiryDate": "2028-09-02",
+      "assigneeId": "EN1108",
+      "assigneeName": "Sample Signal Engineer",
+      "status": "Assigned to Engineer"
+    },
+    {
+      "barcode": "AIC-NIC-088",
+      "ownership": "AMD-Specific",
+      "assetType": "Add-in Card",
+      "manufacturer": "Broadcom",
+      "mfsSerialNo": "BCM-57508-088",
+      "make": "Broadcom",
+      "model": "BCM57508",
+      "capacityRev": "PCIe Gen4 x16",
+      "description": "100GbE adapter held for rework",
+      "poNumber": "PO-AMD-23880",
+      "arrivalDate": "2026-05-19",
+      "expiryDate": "2029-05-19",
+      "assigneeId": "",
+      "assigneeName": "",
+      "status": "Under Maintenance"
+    },
+    {
+      "barcode": "DBG-HDT-003",
+      "ownership": "AMD-Specific",
+      "assetType": "Debugger",
+      "manufacturer": "AMD",
+      "mfsSerialNo": "HDT-PLUS-003",
+      "make": "AMD",
+      "model": "HDT+",
+      "capacityRev": "FW 9.4",
+      "description": "HDT hardware debugger pod",
+      "poNumber": "PO-AMD-19002",
+      "arrivalDate": "2025-11-03",
+      "expiryDate": "2028-11-03",
+      "assigneeId": "",
+      "assigneeName": "",
+      "status": "Available in Lab"
+    },
+    {
+      "barcode": "PSU-2K4-021",
+      "ownership": "Wipro-Specific",
+      "assetType": "Power Supply",
+      "manufacturer": "Chroma",
+      "mfsSerialNo": "CH-62012-021",
+      "make": "Chroma",
+      "model": "62012P",
+      "capacityRev": "600V / 8A",
+      "description": "Programmable bench supply owned by the Wipro lab bench",
+      "poNumber": "PO-WPR-44190",
+      "arrivalDate": "2026-01-22",
+      "expiryDate": "2031-01-22",
+      "assigneeId": "EN1042",
+      "assigneeName": "Sample Validation Engineer",
+      "status": "Assigned to Engineer"
+    },
+    {
+      "barcode": "CBL-PCIE-110",
+      "ownership": "Wipro-Specific",
+      "assetType": "Cable",
+      "manufacturer": "Molex",
+      "mfsSerialNo": "MX-G5-110",
+      "make": "Molex",
+      "model": "PCIe-G5",
+      "capacityRev": "1.0 m",
+      "description": "PCIe Gen5 riser cable",
+      "poNumber": "PO-WPR-44102",
+      "arrivalDate": "2026-03-11",
+      "expiryDate": "",
+      "assigneeId": "",
+      "assigneeName": "",
+      "status": "Available in Lab"
+    },
+    {
+      "barcode": "DBG-LA-017",
+      "ownership": "Wipro-Specific",
+      "assetType": "Debugger",
+      "manufacturer": "Tektronix",
+      "mfsSerialNo": "TEK-TLA-017",
+      "make": "Tektronix",
+      "model": "TLA6404",
+      "capacityRev": "Retired",
+      "description": "Logic analyzer returned after failed calibration",
+      "poNumber": "PO-WPR-39811",
+      "arrivalDate": "2024-06-01",
+      "expiryDate": "2026-06-01",
+      "assigneeId": "",
+      "assigneeName": "",
+      "status": "Scrapped/Returned"
+    },
+    {
+      "barcode": "SOC-FPGA-006",
+      "ownership": "Wipro-Specific",
+      "assetType": "SoC Board",
+      "manufacturer": "AMD",
+      "mfsSerialNo": "XIL-VCU-006",
+      "make": "AMD",
+      "model": "VCU118",
+      "capacityRev": "Rev 2.0",
+      "description": "FPGA characterization board on the Wipro bench",
+      "poNumber": "PO-WPR-41020",
+      "arrivalDate": "2026-04-09",
+      "expiryDate": "2029-04-09",
+      "assigneeId": "EN1108",
+      "assigneeName": "Sample Signal Engineer",
+      "status": "Assigned to Engineer"
+    },
+    {
+      "barcode": "MB-SP5-044",
+      "ownership": "AMD-Specific",
+      "assetType": "Motherboard",
+      "manufacturer": "ASRock Rack",
+      "mfsSerialNo": "ASR-SIENA-044",
+      "make": "ASRock Rack",
+      "model": "SIENAD8",
+      "capacityRev": "Rev A",
+      "description": "Siena reference motherboard",
+      "poNumber": "PO-AMD-26001",
+      "arrivalDate": "2026-10-01",
+      "expiryDate": "2029-10-01",
+      "assigneeId": "",
+      "assigneeName": "",
+      "status": "Available in Lab"
+    },
+    {
+      "barcode": "AIC-GPU-002",
+      "ownership": "AMD-Specific",
+      "assetType": "Add-in Card",
+      "manufacturer": "AMD",
+      "mfsSerialNo": "INST-VAL-002",
+      "make": "AMD",
+      "model": "Instinct-VAL",
+      "capacityRev": "192GB",
+      "description": "Instinct validation accelerator card",
+      "poNumber": "PO-AMD-25550",
+      "arrivalDate": "2026-09-18",
+      "expiryDate": "2028-09-18",
+      "assigneeId": "EN1042",
+      "assigneeName": "Sample Validation Engineer",
+      "status": "Assigned to Engineer"
+    },
+    {
+      "barcode": "CBL-JTAG-009",
+      "ownership": "AMD-Specific",
+      "assetType": "Cable",
+      "manufacturer": "Blackhawk",
+      "mfsSerialNo": "BH-JTAG-009",
+      "make": "Blackhawk",
+      "model": "JTAG-14",
+      "capacityRev": "14-pin",
+      "description": "JTAG scan cable",
+      "poNumber": "PO-AMD-18820",
+      "arrivalDate": "2025-12-12",
+      "expiryDate": "",
+      "assigneeId": "",
+      "assigneeName": "",
+      "status": "Available in Lab"
+    }
+  ],
+  "audit": [
+    {
+      "timestamp": "2026-08-14T10:05:00",
+      "barcode": "MB-7800X-001",
+      "previousAssigneeId": "",
+      "newAssigneeId": "EN1042",
+      "transferredBy": "AD010",
+      "remarks": "Initial issue for Genoa bring-up"
+    },
+    {
+      "timestamp": "2026-09-02T15:41:00",
+      "barcode": "PSU-2K4-021",
+      "previousAssigneeId": "",
+      "newAssigneeId": "EN1042",
+      "transferredBy": "AD010",
+      "remarks": "Bench supply issued with the SP5 board"
+    },
+    {
+      "timestamp": "2026-07-30T11:20:00",
+      "barcode": "DBG-LA-017",
+      "previousAssigneeId": "EN1108",
+      "newAssigneeId": "",
+      "transferredBy": "AD010",
+      "remarks": "Failed calibration and returned to Wipro stores"
+    }
+  ]
+}
+</script>
+  <script>
+    const SHOW_DEMO_ACCOUNTS = true;
+    const STORAGE_KEY = "hwlab.ims.v1";
+    const SESSION_KEY = "hwlab.ims.session";
+    const ASSET_TYPES = ["Motherboard", "Add-in Card", "Debugger", "SoC Board", "Power Supply", "Cable", "Other"];
+    const STATUSES = ["Available in Lab", "Assigned to Engineer", "Under Maintenance", "Scrapped/Returned"];
+    const ROLES = ["Super Admin", "Admin", "User"];
+    const OWNERS = ["AMD-Specific", "Wipro-Specific"];
+
+    const state = {
+      view: "login",
+      tab: "dashboard",
+      selectedEmp: "",
+      filters: { owner: "", status: "", type: "", search: "" }
+    };
+
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
+    function freshSeed() {
+      const raw = JSON.parse(document.getElementById("seed-data").textContent);
+      raw.assets.forEach((asset) => {
+        asset.createdBy = asset.createdBy || "SEED";
+        asset.createdAt = asset.createdAt || ((asset.arrivalDate || "2026-01-01") + "T00:00:00");
+      });
+      raw.audit.forEach((row, index) => { row.id = index + 1; });
+      return raw;
+    }
+
+    function loadDb() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) {
+        const seeded = freshSeed();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
+        return seeded;
+      }
+      return JSON.parse(saved);
+    }
+
+    function saveDb(db) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    }
+
+    function sessionId() {
+      return sessionStorage.getItem(SESSION_KEY) || "";
+    }
+
+    function currentUser() {
+      const id = sessionId();
+      if (!id) return null;
+      return loadDb().users.find((user) => user.empId === id && user.active) || null;
+    }
+
+    function isCustodian(user) {
+      return !!user && (user.role === "Admin" || user.role === "Super Admin");
+    }
+
+    function normalizeId(value) {
+      return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+    }
+
+    function normalizeBarcode(value) {
+      return String(value || "").toUpperCase().replace(/[\s\r\n\t]+/g, "");
+    }
+
+    function validBarcode(code) {
+      return /^[A-Z0-9_-]{4,64}$/.test(code);
+    }
+
+    function isIsoDate(value) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const [year, month, day] = value.split("-").map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+    }
+
+    function nowStamp() {
+      const date = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate())
+        + "T" + pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
+    }
+
+    function fileStamp() {
+      return nowStamp().replace(/[-:T]/g, "");
+    }
+
+    function typeFromPrefix(barcode) {
+      const token = (barcode.split("-")[0] || barcode.slice(0, 3));
+      return {
+        MB: "Motherboard",
+        AIC: "Add-in Card",
+        DBG: "Debugger",
+        SOC: "SoC Board",
+        PSU: "Power Supply",
+        CBL: "Cable"
+      }[token] || "";
+    }
+
+    function familyPrefix(barcode) {
+      const dash = barcode.lastIndexOf("-");
+      return dash > 0 ? barcode.slice(0, dash) : barcode;
+    }
+
+    function latestSibling(barcode) {
+      const family = familyPrefix(barcode);
+      return loadDb().assets
+        .filter((asset) => asset.barcode !== barcode && asset.barcode.startsWith(family))
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null;
+    }
+
+    function latestModel(model) {
+      const key = model.trim().toUpperCase();
+      if (!key) return null;
+      return loadDb().assets
+        .filter((asset) => String(asset.model || "").toUpperCase() === key)
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0] || null;
+    }
+
+    function findUser(db, empId) {
+      return db.users.find((user) => user.empId === normalizeId(empId)) || null;
+    }
+
+    function captureFilters() {
+      if (!document.getElementById("filter-owner")) return;
+      state.filters = {
+        owner: valueOf("filter-owner"),
+        status: valueOf("filter-status"),
+        type: valueOf("filter-type"),
+        search: valueOf("filter-search").trim()
+      };
+    }
+
+    function visibleAssets(db, user) {
+      const ownership = state.filters.owner;
+      const status = state.filters.status;
+      const assetType = state.filters.type;
+      const search = state.filters.search.toUpperCase();
+      return db.assets.filter((asset) => {
+        if (user.role === "User" && asset.assigneeId !== user.empId) return false;
+        if (ownership && asset.ownership !== ownership) return false;
+        if (status && asset.status !== status) return false;
+        if (assetType && asset.assetType !== assetType) return false;
+        if (!search) return true;
+        const haystack = [asset.barcode, asset.model, asset.assigneeName, asset.assigneeId, asset.poNumber, asset.manufacturer]
+          .join(" ").toUpperCase();
+        return haystack.includes(search);
+      }).sort((a, b) => a.barcode.localeCompare(b.barcode));
+    }
+
+    function valueOf(id) {
+      const node = document.getElementById(id);
+      return node ? node.value : "";
+    }
+
+    function setStatus(text, kind) {
+      const node = document.getElementById("form-status");
+      if (!node) return;
+      node.textContent = text;
+      node.className = "status " + (kind || "");
+    }
+
+    function options(list, includeBlank, selected) {
+      const blank = includeBlank ? "<option value=''>All</option>" : "";
+      return blank + list.map((item) => (
+        `<option value="${esc(item)}"${item === selected ? " selected" : ""}>${esc(item)}</option>`
+      )).join("");
+    }
+
+    function ownershipPill(value) {
+      const kind = value === "Wipro-Specific" ? "wipro" : "amd";
+      return `<span class="pill ${kind}">${esc(value)}</span>`;
+    }
+
+    function downloadCsv(filename, rows) {
+      const csv = rows.map((row) => row.map((cell) => {
+        const text = String(cell ?? "").replace(/[\r\n]+/g, " ").replace(/"/g, '""');
+        return `"${text}"`;
+      }).join(",")).join("\r\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function paint() {
+      const user = currentUser();
+      if (!user) state.view = state.view === "register" ? "register" : "login";
+      else state.view = "app";
+      const root = document.getElementById("app");
+      if (state.view === "login") root.innerHTML = loginHtml();
+      else if (state.view === "register") root.innerHTML = registerHtml();
+      else root.innerHTML = appHtml(user);
+    }
+
+    function loginHtml() {
+      const demo = SHOW_DEMO_ACCOUNTS ? `
+        <div class="demo">
+          <button type="button" data-action="fill" data-id="SA001" data-code="1001">Super Admin SA001</button>
+          <button type="button" data-action="fill" data-id="AD010" data-code="2001">Custodian AD010</button>
+          <button type="button" data-action="fill" data-id="EN1042" data-code="3001">Engineer EN1042</button>
+        </div>` : "";
+      return `
+        <div class="auth-screen"><section class="card">
+          <div class="brand"><div class="mark">IMS</div><div><h1>Hardware Lab IMS</h1><div class="sub">Sign in with your employee ID and lab access code.</div></div></div>
+          <form id="login-form">
+            <label for="auth-emp">Employee ID</label>
+            <input id="auth-emp" autocomplete="off" maxlength="32" required>
+            <label for="auth-code">Lab access code</label>
+            <input id="auth-code" type="password" autocomplete="off" maxlength="32" required>
+            <div class="row">
+              <button class="btn" type="submit">Sign in</button>
+              <button class="btn secondary" type="button" data-action="show-register">Create account</button>
+            </div>
+            <p id="form-status" class="status" role="status"></p>
+          </form>
+          ${demo}
+          <p class="fine">This browser copy keeps inventory in local storage on this computer. The shared lab database used by the floor is the Excel workbook with the Access file on the network share. Do not type a Windows or email password here.</p>
+        </section></div>`;
+    }
+
+    function registerHtml() {
+      return `
+        <div class="auth-screen"><section class="card">
+          <div class="brand"><div class="mark">IMS</div><div><h1>Create a lab account</h1><div class="sub">New accounts are engineers. A Super Admin can promote a custodian later.</div></div></div>
+          <form id="register-form">
+            <label for="reg-emp">Employee ID</label>
+            <input id="reg-emp" autocomplete="off" maxlength="32" required>
+            <label for="reg-name">Full name</label>
+            <input id="reg-name" autocomplete="name" maxlength="120" required>
+            <label for="reg-code">Lab access code</label>
+            <input id="reg-code" type="password" maxlength="32" required>
+            <label for="reg-confirm">Confirm lab access code</label>
+            <input id="reg-confirm" type="password" maxlength="32" required>
+            <div class="row">
+              <button class="btn" type="submit">Create account</button>
+              <button class="btn secondary" type="button" data-action="show-login">Back to sign in</button>
+            </div>
+            <p id="form-status" class="status" role="status"></p>
+          </form>
+        </section></div>`;
+    }
+
+    function appHtml(user) {
+      const tabs = [
+        ["dashboard", "Dashboard"],
+        isCustodian(user) ? ["inward", "Inward"] : null,
+        isCustodian(user) ? ["transfer", "Transfer"] : null,
+        user.role === "Super Admin" ? ["accounts", "Accounts"] : null
+      ].filter(Boolean);
+      if (!tabs.some(([id]) => id === state.tab)) state.tab = "dashboard";
+      const tabButtons = tabs.map(([id, label]) => (
+        `<button type="button" class="btn secondary" data-action="tab" data-tab="${id}" aria-selected="${state.tab === id}">${label}</button>`
+      )).join("");
+      return `
+        <header class="app"><div class="wrap">
+          <div><h1>Hardware Lab IMS</h1><p>${user.role === "User" ? "Engineer view. You see hardware checked out to you." : "Custodian console for AMD-specific and Wipro-specific assets."}</p></div>
+          <div class="who"><strong>${esc(user.name)}</strong><span class="mono">${esc(user.empId)} · ${esc(user.role)}</span>
+            <div class="row" style="justify-content:flex-end"><button class="btn secondary" type="button" data-action="logout">Sign out</button></div>
+          </div>
+        </div></header>
+        <main class="wrap">
+          <nav class="tabs">${tabButtons}</nav>
+          <section class="panel">${panelHtml(user)}</section>
+        </main>`;
+    }
+
+    function panelHtml(user) {
+      if (state.tab === "inward") return inwardHtml();
+      if (state.tab === "transfer") return transferHtml();
+      if (state.tab === "accounts") return accountsHtml(user);
+      return dashboardHtml(user);
+    }
+
+    function inwardHtml() {
+      return `
+        <h2>Inward material</h2>
+        <p class="sub">Scan the asset tag. The scanner's Enter key looks it up. A known family prefix fills empty make and model fields.</p>
+        <form id="inward-form">
+          <div class="grid">
+            <div class="span-2">
+              <label for="inward-barcode">Barcode / asset tag</label>
+              <input id="inward-barcode" class="mono" maxlength="64" autocomplete="off" spellcheck="false" required>
+            </div>
+            <div class="span-2 choices">
+              <label><input type="radio" name="ownership" value="AMD-Specific"> AMD-Specific</label>
+              <label><input type="radio" name="ownership" value="Wipro-Specific"> Wipro-Specific</label>
+            </div>
+            <div>
+              <label for="inward-type">Asset type</label>
+              <select id="inward-type" required>${options(ASSET_TYPES, false, "")}</select>
+            </div>
+            <div>
+              <label for="inward-po">Purchase order</label>
+              <input id="inward-po" maxlength="64" required>
+            </div>
+            <div>
+              <label for="inward-mfr">Manufacturer</label>
+              <input id="inward-mfr" maxlength="120">
+            </div>
+            <div>
+              <label for="inward-serial">Manufacturer serial</label>
+              <input id="inward-serial" maxlength="64">
+            </div>
+            <div>
+              <label for="inward-make">Make</label>
+              <input id="inward-make" maxlength="80">
+            </div>
+            <div>
+              <label for="inward-model">Model</label>
+              <input id="inward-model" maxlength="80">
+            </div>
+            <div>
+              <label for="inward-rev">Capacity / revision</label>
+              <input id="inward-rev" maxlength="80">
+            </div>
+            <div>
+              <label for="inward-assignee">Initial assignee employee ID</label>
+              <input id="inward-assignee" maxlength="32" autocomplete="off">
+            </div>
+            <div>
+              <label for="inward-arrival">Arrival date</label>
+              <input id="inward-arrival" placeholder="YYYY-MM-DD" maxlength="10">
+            </div>
+            <div>
+              <label for="inward-expiry">Expiry date</label>
+              <input id="inward-expiry" placeholder="YYYY-MM-DD" maxlength="10">
+            </div>
+            <div class="span-2">
+              <label for="inward-desc">Description</label>
+              <textarea id="inward-desc"></textarea>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn" type="submit">Save</button>
+            <button class="btn secondary" type="button" data-action="clear-inward">Clear</button>
+          </div>
+          <p id="form-status" class="status" role="status">Scan a barcode to begin.</p>
+        </form>`;
+    }
+
+    function transferHtml() {
+      return `
+        <h2>Assign and transfer</h2>
+        <p class="sub">Scan a barcode to load the current assignee. Recording the move updates the asset and appends an audit row.</p>
+        <form id="transfer-form">
+          <label for="transfer-barcode">Asset barcode</label>
+          <input id="transfer-barcode" class="mono" maxlength="64" autocomplete="off" spellcheck="false" required>
+          <p id="transfer-summary" class="sub">Ownership, model, assignee, and status appear here after the scan.</p>
+          <label for="transfer-status">New status</label>
+          <select id="transfer-status">${options(STATUSES, false, "Assigned to Engineer")}</select>
+          <label for="transfer-emp">Target employee ID</label>
+          <input id="transfer-emp" maxlength="32" autocomplete="off">
+          <label for="transfer-notes">Remarks</label>
+          <textarea id="transfer-notes"></textarea>
+          <div class="row"><button class="btn" type="submit">Record transfer</button></div>
+          <p id="form-status" class="status" role="status"></p>
+        </form>`;
+    }
+
+    function dashboardHtml(user) {
+      const db = loadDb();
+      const rows = visibleAssets(db, user);
+      const body = rows.length ? rows.map((asset) => `
+        <tr>
+          <td class="mono">${esc(asset.barcode)}</td>
+          <td>${ownershipPill(asset.ownership)}</td>
+          <td>${esc(asset.assetType)}</td>
+          <td>${esc(asset.model)}</td>
+          <td class="mono">${esc(asset.poNumber)}</td>
+          <td>${esc(asset.status)}</td>
+          <td class="mono">${esc(asset.assigneeId)}</td>
+          <td>${esc(asset.assigneeName)}</td>
+        </tr>`).join("") : `<tr><td colspan="8">No assets match this view.</td></tr>`;
+      return `
+        <h2>${user.role === "User" ? "My assigned hardware" : "Lab inventory"}</h2>
+        <div class="filters">
+          <div><label for="filter-owner">Ownership</label><select id="filter-owner">${options(OWNERS, true, state.filters.owner)}</select></div>
+          <div><label for="filter-status">Status</label><select id="filter-status">${options(STATUSES, true, state.filters.status)}</select></div>
+          <div><label for="filter-type">Asset type</label><select id="filter-type">${options(ASSET_TYPES, true, state.filters.type)}</select></div>
+          <div><label for="filter-search">Search</label><input id="filter-search" placeholder="Barcode, model, PO, assignee" value="${esc(state.filters.search)}"></div>
+        </div>
+        <div class="row">
+          <button class="btn secondary" type="button" data-action="refresh">Apply filters</button>
+          <button class="btn" type="button" data-action="export-inventory">Export inventory CSV</button>
+          ${isCustodian(user) ? '<button class="btn secondary" type="button" data-action="export-audit">Export audit CSV</button>' : ""}
+        </div>
+        <p id="form-status" class="status good">${rows.length} assets</p>
+        <div style="overflow:auto"><table>
+          <thead><tr><th>Barcode</th><th>Ownership</th><th>Type</th><th>Model</th><th>PO</th><th>Status</th><th>Assignee</th><th>Name</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table></div>`;
+    }
+
+    function accountsHtml(user) {
+      if (user.role !== "Super Admin") return "<p>Only a Super Admin can manage accounts.</p>";
+      const db = loadDb();
+      const cards = db.users.map((account) => `
+        <button type="button" class="btn secondary user-pick" data-action="select-user" data-id="${esc(account.empId)}" ${state.selectedEmp === account.empId ? 'aria-current="true"' : ""}>
+          <span class="mono">${esc(account.empId)}</span> ${esc(account.name)} · ${esc(account.role)} · ${account.active ? "Active" : "Inactive"}
+        </button>`).join("");
+      const selected = findUser(db, state.selectedEmp);
+      const editor = selected ? `
+        <label for="role-pick">Role for ${esc(selected.empId)}</label>
+        <select id="role-pick">${options(ROLES, false, selected.role)}</select>
+        <label><input id="active-pick" type="checkbox" ${selected.active ? "checked" : ""}> Active</label>
+        <div class="row"><button class="btn" type="button" data-action="save-role">Save role</button></div>` : "<p class='sub'>Select an account.</p>";
+      return `
+        <h2>User directory</h2>
+        <p class="sub">Self-registration creates a User. Promote custodians here. The last active Super Admin cannot be removed.</p>
+        <div class="row">${cards}</div>
+        ${editor}
+        <h2 style="margin-top:22px">Reset sample data</h2>
+        <label for="reset-confirm">Type RESET to erase this browser's inventory and restore the sample set.</label>
+        <input id="reset-confirm" autocomplete="off">
+        <div class="row"><button class="btn danger" type="button" data-action="reset-db">Restore sample data</button></div>
+        <p id="form-status" class="status" role="status"></p>`;
+    }
+
+    function readOwnership() {
+      const picked = document.querySelector('input[name="ownership"]:checked');
+      return picked ? picked.value : "";
+    }
+
+    function fillIfEmpty(id, value) {
+      const node = document.getElementById(id);
+      if (node && !node.value && value) node.value = value;
+    }
+
+    const actions = {
+      fill(button) {
+        document.getElementById("auth-emp").value = button.dataset.id;
+        document.getElementById("auth-code").value = button.dataset.code;
+        setStatus("", "");
+      },
+      "show-register"() { state.view = "register"; paint(); },
+      "show-login"() { state.view = "login"; paint(); },
+      login() {
+        const db = loadDb();
+        const empId = normalizeId(valueOf("auth-emp"));
+        const code = valueOf("auth-code").trim();
+        const user = findUser(db, empId);
+        if (!user || user.accessCode !== code) {
+          setStatus("Employee ID or access code is not recognized.", "bad");
+          return;
+        }
+        if (!user.active) {
+          setStatus("This employee ID is inactive. Ask a Super Admin to turn it back on.", "bad");
+          return;
+        }
+        sessionStorage.setItem(SESSION_KEY, user.empId);
+        state.tab = "dashboard";
+        state.filters = { owner: "", status: "", type: "", search: "" };
+        paint();
+      },
+      register() {
+        const db = loadDb();
+        const empId = normalizeId(valueOf("reg-emp"));
+        const name = valueOf("reg-name").trim();
+        const code = valueOf("reg-code").trim();
+        const confirm = valueOf("reg-confirm").trim();
+        if (!/^[A-Z0-9-]{3,32}$/.test(empId)) {
+          setStatus("Employee ID must be 3 to 32 letters, digits, or hyphens.", "bad");
+          return;
+        }
+        if (!name || name.length > 120) {
+          setStatus("Enter the employee name.", "bad");
+          return;
+        }
+        if (code.length < 4 || code.length > 32) {
+          setStatus("The lab access code must be 4 to 32 characters.", "bad");
+          return;
+        }
+        if (code !== confirm) {
+          setStatus("The access code and the confirmation do not match.", "bad");
+          return;
+        }
+        if (findUser(db, empId)) {
+          setStatus("That employee ID is already registered.", "bad");
+          return;
+        }
+        db.users.push({ empId, name, role: "User", accessCode: code, active: true });
+        saveDb(db);
+        state.view = "login";
+        paint();
+        setStatus("Account created for " + empId + ". Sign in with that employee ID.", "good");
+      },
+      logout() {
+        sessionStorage.removeItem(SESSION_KEY);
+        state.view = "login";
+        paint();
+      },
+      tab(button) {
+        state.tab = button.dataset.tab;
+        paint();
+      },
+      refresh() {
+        captureFilters();
+        paint();
+      },
+      lookupInward() {
+        const code = normalizeBarcode(valueOf("inward-barcode"));
+        const box = document.getElementById("inward-barcode");
+        if (box) box.value = code;
+        if (!validBarcode(code)) {
+          setStatus("Barcode must be 4 to 64 letters, digits, hyphens, or underscores.", "bad");
+          return;
+        }
+        const existing = loadDb().assets.find((asset) => asset.barcode === code);
+        if (existing) {
+          const form = document.getElementById("inward-form");
+          form.dataset.mode = "update";
+          document.querySelectorAll('input[name="ownership"]').forEach((node) => {
+            node.checked = node.value === existing.ownership;
+          });
+          document.getElementById("inward-type").value = existing.assetType;
+          document.getElementById("inward-po").value = existing.poNumber || "";
+          document.getElementById("inward-mfr").value = existing.manufacturer || "";
+          document.getElementById("inward-serial").value = existing.mfsSerialNo || "";
+          document.getElementById("inward-make").value = existing.make || "";
+          document.getElementById("inward-model").value = existing.model || "";
+          document.getElementById("inward-rev").value = existing.capacityRev || "";
+          document.getElementById("inward-desc").value = existing.description || "";
+          document.getElementById("inward-arrival").value = existing.arrivalDate || "";
+          document.getElementById("inward-expiry").value = existing.expiryDate || "";
+          document.getElementById("inward-assignee").value = existing.assigneeId || "";
+          document.getElementById("inward-assignee").disabled = true;
+          setStatus("This barcode is already on file. Saving updates metadata only. Use Transfer to change the assignee.", "good");
+          return;
+        }
+        document.getElementById("inward-form").dataset.mode = "create";
+        document.getElementById("inward-assignee").disabled = false;
+        const guessed = typeFromPrefix(code);
+        if (guessed) document.getElementById("inward-type").value = guessed;
+        const sibling = latestSibling(code);
+        if (sibling) {
+          fillIfEmpty("inward-mfr", sibling.manufacturer);
+          fillIfEmpty("inward-make", sibling.make);
+          fillIfEmpty("inward-model", sibling.model);
+          fillIfEmpty("inward-rev", sibling.capacityRev);
+          if (!document.getElementById("inward-type").value) document.getElementById("inward-type").value = sibling.assetType;
+          setStatus("New barcode. Empty fields were filled from the latest " + familyPrefix(code) + " asset.", "good");
+        } else {
+          setStatus("New barcode. Fill the purchase order before saving.", "good");
+        }
+      },
+      saveInward() {
+        const user = currentUser();
+        if (!isCustodian(user)) return;
+        const db = loadDb();
+        const barcode = normalizeBarcode(valueOf("inward-barcode"));
+        const ownership = readOwnership();
+        const assetType = valueOf("inward-type");
+        const poNumber = valueOf("inward-po").trim();
+        const arrival = valueOf("inward-arrival").trim();
+        const expiry = valueOf("inward-expiry").trim();
+        if (!validBarcode(barcode)) return setStatus("Barcode must be 4 to 64 letters, digits, hyphens, or underscores.", "bad");
+        if (!OWNERS.includes(ownership)) return setStatus("Choose ownership: AMD-Specific or Wipro-Specific.", "bad");
+        if (!ASSET_TYPES.includes(assetType)) return setStatus("Choose an asset type.", "bad");
+        if (!poNumber) return setStatus("Purchase order number is required.", "bad");
+        if (arrival && !isIsoDate(arrival)) return setStatus("Arrival date must be YYYY-MM-DD.", "bad");
+        if (expiry && !isIsoDate(expiry)) return setStatus("Expiry date must be YYYY-MM-DD.", "bad");
+        const existing = db.assets.find((asset) => asset.barcode === barcode);
+        const meta = {
+          ownership, assetType, poNumber,
+          manufacturer: valueOf("inward-mfr").trim(),
+          mfsSerialNo: valueOf("inward-serial").trim(),
+          make: valueOf("inward-make").trim(),
+          model: valueOf("inward-model").trim(),
+          capacityRev: valueOf("inward-rev").trim(),
+          description: valueOf("inward-desc").trim(),
+          arrivalDate: arrival,
+          expiryDate: expiry
+        };
+        if (existing) {
+          Object.assign(existing, meta);
+          saveDb(db);
+          setStatus("Metadata updated for " + barcode + ". Assignee and status were left unchanged.", "good");
+          return;
+        }
+        const assigneeId = normalizeId(valueOf("inward-assignee"));
+        let assigneeName = "";
+        let status = "Available in Lab";
+        if (assigneeId) {
+          const assignee = findUser(db, assigneeId);
+          if (!assignee || !assignee.active) return setStatus("Initial assignee " + assigneeId + " is not an active employee.", "bad");
+          assigneeName = assignee.name;
+          status = "Assigned to Engineer";
+        }
+        db.assets.push({
+          barcode, ...meta, assigneeId, assigneeName, status,
+          createdBy: user.empId, createdAt: nowStamp()
+        });
+        db.audit.push({
+          id: db.audit.reduce((max, row) => Math.max(max, row.id || 0), 0) + 1,
+          timestamp: nowStamp(),
+          barcode,
+          previousAssigneeId: "",
+          newAssigneeId: assigneeId,
+          transferredBy: user.empId,
+          remarks: "Inward receipt"
+        });
+        saveDb(db);
+        paint();
+        setStatus("Inward saved for " + barcode + ".", "good");
+      },
+      "clear-inward"() { paint(); },
+      lookupTransfer() {
+        const code = normalizeBarcode(valueOf("transfer-barcode"));
+        const box = document.getElementById("transfer-barcode");
+        if (box) box.value = code;
+        const asset = loadDb().assets.find((item) => item.barcode === code);
+        const summary = document.getElementById("transfer-summary");
+        if (!asset) {
+          summary.textContent = "Barcode " + code + " is not in the lab database.";
+          setStatus("Barcode was not found.", "bad");
+          return;
+        }
+        const who = asset.assigneeId ? (asset.assigneeId + " " + asset.assigneeName) : "(in lab cage)";
+        summary.textContent = asset.ownership + " · " + asset.assetType + " · " + (asset.model || "no model")
+          + " · Current assignee: " + who + " · Status: " + asset.status;
+        setStatus("Asset loaded.", "good");
+      },
+      saveTransfer() {
+        const user = currentUser();
+        if (!isCustodian(user)) return;
+        const db = loadDb();
+        const barcode = normalizeBarcode(valueOf("transfer-barcode"));
+        const newStatus = valueOf("transfer-status") || "Assigned to Engineer";
+        const newEmp = normalizeId(valueOf("transfer-emp"));
+        const remarks = valueOf("transfer-notes").trim();
+        const asset = db.assets.find((item) => item.barcode === barcode);
+        if (!asset) return setStatus("Barcode " + barcode + " is not in the lab database.", "bad");
+        if (!STATUSES.includes(newStatus)) return setStatus("Choose a status.", "bad");
+        if (newStatus === "Scrapped/Returned" && !remarks) return setStatus("Enter remarks when scrapping or returning an asset.", "bad");
+        const previous = asset.assigneeId || "";
+        let storedId = "";
+        let storedName = "";
+        if (newStatus === "Assigned to Engineer") {
+          if (!newEmp) return setStatus("Enter the target employee ID.", "bad");
+          const assignee = findUser(db, newEmp);
+          if (!assignee || !assignee.active) return setStatus("Employee " + newEmp + " is not an active user.", "bad");
+          storedId = assignee.empId;
+          storedName = assignee.name;
+        } else if (newStatus === "Available in Lab" || newStatus === "Scrapped/Returned") {
+          if (newEmp) return setStatus("Clear the target employee ID when returning a board to the cage or scrapping it.", "bad");
+        } else if (newEmp) {
+          const assignee = findUser(db, newEmp);
+          if (!assignee || !assignee.active) return setStatus("Employee " + newEmp + " is not an active user.", "bad");
+          storedId = assignee.empId;
+          storedName = assignee.name;
+        } else {
+          storedId = previous;
+          storedName = asset.assigneeName || "";
+        }
+        asset.assigneeId = storedId;
+        asset.assigneeName = storedName;
+        asset.status = newStatus;
+        db.audit.push({
+          id: db.audit.reduce((max, row) => Math.max(max, row.id || 0), 0) + 1,
+          timestamp: nowStamp(),
+          barcode,
+          previousAssigneeId: previous,
+          newAssigneeId: storedId,
+          transferredBy: user.empId,
+          remarks
+        });
+        saveDb(db);
+        actions.lookupTransfer();
+        document.getElementById("transfer-emp").value = "";
+        document.getElementById("transfer-notes").value = "";
+        setStatus("Transfer recorded for " + barcode + ".", "good");
+      },
+      "export-inventory"() {
+        captureFilters();
+        const user = currentUser();
+        const rows = visibleAssets(loadDb(), user);
+        const header = ["Barcode", "Ownership", "Asset Type", "Model", "PO Number", "Status", "Assignee ID", "Assignee Name", "Manufacturer", "Mfr Serial", "Make", "Capacity / Rev", "Description", "Arrival Date", "Expiry Date"];
+        const body = rows.map((asset) => [
+          asset.barcode, asset.ownership, asset.assetType, asset.model, asset.poNumber, asset.status,
+          asset.assigneeId, asset.assigneeName, asset.manufacturer, asset.mfsSerialNo, asset.make,
+          asset.capacityRev, asset.description, asset.arrivalDate, asset.expiryDate
+        ]);
+        downloadCsv("LabInventory_" + fileStamp() + ".csv", [header, ...body]);
+        paint();
+        setStatus("Inventory snapshot downloaded.", "good");
+      },
+      "export-audit"() {
+        captureFilters();
+        const user = currentUser();
+        if (!isCustodian(user)) return;
+        const visible = new Set(visibleAssets(loadDb(), user).map((asset) => asset.barcode));
+        const header = ["Log ID", "Timestamp", "Asset Barcode", "Previous Assignee ID", "New Assignee ID", "Transferred By", "Remarks"];
+        const body = loadDb().audit
+          .filter((row) => visible.has(row.barcode))
+          .map((row) => [row.id, row.timestamp, row.barcode, row.previousAssigneeId, row.newAssigneeId, row.transferredBy, row.remarks]);
+        downloadCsv("LabAudit_" + fileStamp() + ".csv", [header, ...body]);
+        paint();
+        setStatus("Audit snapshot for the assets on screen downloaded.", "good");
+      },
+      "select-user"(button) {
+        state.selectedEmp = button.dataset.id;
+        paint();
+      },
+      "save-role"() {
+        const actor = currentUser();
+        if (!actor || actor.role !== "Super Admin") return;
+        const db = loadDb();
+        const target = findUser(db, state.selectedEmp);
+        if (!target) return setStatus("Select an account first.", "bad");
+        const newRole = valueOf("role-pick");
+        const makeActive = document.getElementById("active-pick").checked;
+        const activeSupers = db.users.filter((user) => user.role === "Super Admin" && user.active);
+        if (target.role === "Super Admin" && target.active && activeSupers.length <= 1 && (newRole !== "Super Admin" || !makeActive)) {
+          return setStatus("Keep at least one active Super Admin.", "bad");
+        }
+        target.role = newRole;
+        target.active = makeActive;
+        saveDb(db);
+        paint();
+        setStatus("Saved " + target.empId + ".", "good");
+      },
+      "reset-db"() {
+        const actor = currentUser();
+        if (!actor || actor.role !== "Super Admin") return;
+        if (valueOf("reset-confirm").trim().toUpperCase() !== "RESET") {
+          setStatus("Type RESET to restore the sample data.", "bad");
+          return;
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(freshSeed()));
+        state.selectedEmp = "";
+        state.tab = "dashboard";
+        paint();
+        setStatus("Sample lab data has been restored in this browser.", "good");
+      }
+    };
+
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-action]");
+      if (!button) return;
+      if (button.dataset.action === "refresh" && event.type === "click" && button.tagName === "SELECT") return;
+      const action = actions[button.dataset.action];
+      if (action) action(button);
+    });
+
+    document.addEventListener("change", (event) => {
+      if (["filter-owner", "filter-status", "filter-type"].includes(event.target.id)) actions.refresh();
+      if (event.target.id !== "inward-model") return;
+      const form = document.getElementById("inward-form");
+      if (!form || form.dataset.mode === "update") return;
+      const sibling = latestModel(event.target.value);
+      if (!sibling) return;
+      fillIfEmpty("inward-mfr", sibling.manufacturer);
+      fillIfEmpty("inward-make", sibling.make);
+      fillIfEmpty("inward-rev", sibling.capacityRev);
+    });
+
+    document.addEventListener("submit", (event) => {
+      if (!(event.target instanceof HTMLFormElement)) return;
+      event.preventDefault();
+      if (event.target.id === "login-form") actions.login();
+      if (event.target.id === "register-form") actions.register();
+      if (event.target.id === "inward-form") actions.saveInward();
+      if (event.target.id === "transfer-form") actions.saveTransfer();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      if (event.target.id === "inward-barcode") {
+        event.preventDefault();
+        actions.lookupInward();
+      }
+      if (event.target.id === "transfer-barcode") {
+        event.preventDefault();
+        actions.lookupTransfer();
+      }
+    });
+
+    paint();
+  </script>
+</body>
+</html>
