@@ -22,6 +22,7 @@ The sheets `User_Directory`, `Assets_Master`, and `Transfer_Audit_Log` are a rea
 2. If the project explorer is hidden, press Ctrl+R.
 3. Right-click the workbook project, then **Import File**, and import every `.bas` file in `windows_import`:
    - `modGlobals.bas`
+   - `modSecurity.bas`
    - `modADODB_Backend.bas`
    - `modSeedData.bas`
    - `Module_AccessControl.bas`
@@ -79,4 +80,4 @@ Save the finished `IMS_Frontend.xlsm` and give each person a copy. Every copy mu
 
 ## 6. What to hide before the floor uses it
 
-In `modGlobals.bas`, set `IMS_SHOW_DEMO_FILL` to `False` and compile again. Change the sample access codes from Accounts, or replace the seed and run a reset only on a database that is still sample data. Do not reset a database that already holds real assets.
+In `modGlobals.bas`, set `IMS_SHOW_DEMO_FILL` to `False` and compile again. Turn the sample accounts off from Accounts, or run a reset only on a database that is still sample data. Reset saves a backup copy of the database file first. Do not reset a database that already holds real assets.

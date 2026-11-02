@@ -64,5 +64,11 @@ Private Function CsvCell(ByVal value As String) As String
     value = Replace(value, vbCr, " ")
     value = Replace(value, vbLf, " ")
     value = Replace(value, """", """""")
+    If Len(value) > 0 Then
+        Select Case Left$(value, 1)
+            Case "=", "+", "-", "@", vbTab, vbCr
+                value = "'" & value
+        End Select
+    End If
     CsvCell = """" & value & """"
 End Function

@@ -11,7 +11,7 @@ Option Explicit
 Private Const SQL_USERS As String = _
     "CREATE TABLE [User_Directory] (" & _
     "[EmpID] TEXT(32) PRIMARY KEY, " & _
-    "[EmpName] TEXT(120), [Role] TEXT(32), [AccessCode] TEXT(32), [Active] YESNO)"
+    "[EmpName] TEXT(120), [Role] TEXT(32), [AccessCode] TEXT(80), [Active] YESNO)"
 
 Private Const SQL_ASSETS As String = _
     "CREATE TABLE [Assets_Master] (" & _
@@ -20,7 +20,7 @@ Private Const SQL_ASSETS As String = _
     "[MfsSerialNo] TEXT(64), [Make] TEXT(80), [Model] TEXT(80), [Capacity_Rev] TEXT(80), " & _
     "[Description] MEMO, [PONumber] TEXT(64), [ArrivalDate] DATETIME, [ExpiryDate] DATETIME, " & _
     "[CurrentAssigneeID] TEXT(32), [CurrentAssigneeName] TEXT(120), [Status] TEXT(40), " & _
-    "[CreatedBy] TEXT(32), [CreatedAt] DATETIME)"
+    "[CreatedBy] TEXT(32), [CreatedAt] DATETIME, [Revision] LONG)"
 
 Private Const SQL_LOG As String = _
     "CREATE TABLE [Transfer_Audit_Log] (" & _
@@ -169,9 +169,24 @@ Public Sub IMS_EnsureSchema(ByVal conn As Object)
     If Not TableExists(conn, "User_Directory") Then IMS_ExecOn conn, SQL_USERS
     If Not TableExists(conn, "Assets_Master") Then IMS_ExecOn conn, SQL_ASSETS
     If Not TableExists(conn, "Transfer_Audit_Log") Then IMS_ExecOn conn, SQL_LOG
+    EnsureIndex conn, "ALTER TABLE [User_Directory] ALTER COLUMN [AccessCode] TEXT(80)"
+    EnsureIndex conn, "ALTER TABLE [Assets_Master] ADD COLUMN [Revision] LONG"
+    EnsureIndex conn, "UPDATE [Assets_Master] SET [Revision]=0 WHERE [Revision] IS NULL"
+    EnsureIndex conn, "UPDATE [Assets_Master] SET [CurrentAssigneeID]=NULL WHERE [CurrentAssigneeID]=''"
+    EnsureIndex conn, "UPDATE [Assets_Master] SET [MfsSerialNo]=NULL WHERE [MfsSerialNo]=''"
+    EnsureIndex conn, "UPDATE [Transfer_Audit_Log] SET [PreviousAssigneeID]=NULL WHERE [PreviousAssigneeID]=''"
+    EnsureIndex conn, "UPDATE [Transfer_Audit_Log] SET [NewAssigneeID]=NULL WHERE [NewAssigneeID]=''"
     EnsureIndex conn, "CREATE INDEX [idx_asset_assignee] ON [Assets_Master] ([CurrentAssigneeID])"
     EnsureIndex conn, "CREATE INDEX [idx_asset_owner] ON [Assets_Master] ([Ownership])"
+    EnsureIndex conn, "CREATE INDEX [idx_asset_status] ON [Assets_Master] ([Status])"
+    EnsureIndex conn, "CREATE INDEX [idx_asset_type] ON [Assets_Master] ([AssetType])"
+    EnsureIndex conn, "CREATE UNIQUE INDEX [idx_asset_serial] ON [Assets_Master] ([MfsSerialNo])"
     EnsureIndex conn, "CREATE INDEX [idx_log_barcode] ON [Transfer_Audit_Log] ([AssetBarcode])"
+    EnsureIndex conn, "ALTER TABLE [Assets_Master] ADD CONSTRAINT [fk_asset_assignee] FOREIGN KEY ([CurrentAssigneeID]) REFERENCES [User_Directory] ([EmpID])"
+    EnsureIndex conn, "ALTER TABLE [Transfer_Audit_Log] ADD CONSTRAINT [fk_log_barcode] FOREIGN KEY ([AssetBarcode]) REFERENCES [Assets_Master] ([Barcode])"
+    EnsureIndex conn, "ALTER TABLE [Transfer_Audit_Log] ADD CONSTRAINT [fk_log_prev] FOREIGN KEY ([PreviousAssigneeID]) REFERENCES [User_Directory] ([EmpID])"
+    EnsureIndex conn, "ALTER TABLE [Transfer_Audit_Log] ADD CONSTRAINT [fk_log_new] FOREIGN KEY ([NewAssigneeID]) REFERENCES [User_Directory] ([EmpID])"
+    EnsureIndex conn, "ALTER TABLE [Transfer_Audit_Log] ADD CONSTRAINT [fk_log_by] FOREIGN KEY ([TransferredBy_AdminID]) REFERENCES [User_Directory] ([EmpID])"
 End Sub
 
 Public Function IMS_UserCount() As Long
@@ -187,9 +202,20 @@ Public Sub IMS_DeleteAllRows(ByVal conn As Object)
 End Sub
 
 Public Function IMS_GetAsset(ByVal barcode As String) As Object
-    Set IMS_GetAsset = IMS_FetchOne( _
+    Dim row As Object
+    Dim person As Object
+    Dim assigneeId As String
+    Set row = IMS_FetchOne( _
         "SELECT * FROM [Assets_Master] WHERE [Barcode]=?", _
         Array(IMS_NormalizeBarcode(barcode)))
+    If row Is Nothing Then Exit Function
+    assigneeId = DictStr(row, "CurrentAssigneeID")
+    If assigneeId <> "" Then
+        Set person = IMS_FetchOne( _
+            "SELECT [EmpName] FROM [User_Directory] WHERE [EmpID]=?", Array(assigneeId))
+        If Not person Is Nothing Then row("CurrentAssigneeName") = DictStr(person, "EmpName")
+    End If
+    Set IMS_GetAsset = row
 End Function
 
 Public Function IMS_QueryAssets( _
@@ -216,41 +242,46 @@ Public Function IMS_QueryAssets( _
     End If
     If gRole = "User" Then onlyEmpId = gEmpID
 
-    sql = "SELECT [Barcode], [Ownership], [AssetType], [Model], [PONumber], [Status], " & _
-          "[CurrentAssigneeID], [CurrentAssigneeName], [Manufacturer], [MfsSerialNo], " & _
-          "[Make], [Capacity_Rev], [Description], [ArrivalDate], [ExpiryDate] " & _
-          "FROM [Assets_Master] WHERE 1=1"
+    sql = "SELECT a.[Barcode] AS [Barcode], a.[Ownership] AS [Ownership], a.[AssetType] AS [AssetType], " & _
+          "a.[Model] AS [Model], a.[PONumber] AS [PONumber], a.[Status] AS [Status], " & _
+          "a.[CurrentAssigneeID] AS [CurrentAssigneeID], " & _
+          "Nz(u.[EmpName], Nz(a.[CurrentAssigneeName], '')) AS [CurrentAssigneeName], " & _
+          "a.[Manufacturer] AS [Manufacturer], a.[MfsSerialNo] AS [MfsSerialNo], " & _
+          "a.[Make] AS [Make], a.[Capacity_Rev] AS [Capacity_Rev], a.[Description] AS [Description], " & _
+          "a.[ArrivalDate] AS [ArrivalDate], a.[ExpiryDate] AS [ExpiryDate] " & _
+          "FROM [Assets_Master] AS a LEFT JOIN [User_Directory] AS u " & _
+          "ON a.[CurrentAssigneeID] = u.[EmpID] WHERE 1=1"
     Set vals = New Collection
 
     If Trim$(ownership) <> "" Then
-        sql = sql & " AND [Ownership]=?"
+        sql = sql & " AND a.[Ownership]=?"
         vals.Add IMS_CanonicalChoice(ownership, IMS_OwnershipList())
     End If
     If Trim$(statusName) <> "" Then
-        sql = sql & " AND [Status]=?"
+        sql = sql & " AND a.[Status]=?"
         vals.Add IMS_CanonicalChoice(statusName, IMS_StatusList())
     End If
     If Trim$(assetType) <> "" Then
-        sql = sql & " AND [AssetType]=?"
+        sql = sql & " AND a.[AssetType]=?"
         vals.Add IMS_CanonicalChoice(assetType, IMS_AssetTypeList())
     End If
     If Trim$(onlyEmpId) <> "" Then
-        sql = sql & " AND UCase(Nz([CurrentAssigneeID],''))=?"
+        sql = sql & " AND UCase(Nz(a.[CurrentAssigneeID],''))=?"
         vals.Add UCase$(Trim$(onlyEmpId))
     End If
     token = UCase$(Trim$(searchText))
     If token <> "" Then
-        sql = sql & " AND (InStr(1, UCase([Barcode]), ?) > 0" & _
-            " OR InStr(1, UCase(Nz([Model],'')), ?) > 0" & _
-            " OR InStr(1, UCase(Nz([CurrentAssigneeName],'')), ?) > 0" & _
-            " OR InStr(1, UCase(Nz([PONumber],'')), ?) > 0" & _
-            " OR InStr(1, UCase(Nz([CurrentAssigneeID],'')), ?) > 0" & _
-            " OR InStr(1, UCase(Nz([Manufacturer],'')), ?) > 0)"
+        sql = sql & " AND (InStr(1, UCase(a.[Barcode]), ?) > 0" & _
+            " OR InStr(1, UCase(Nz(a.[Model],'')), ?) > 0" & _
+            " OR InStr(1, UCase(Nz(u.[EmpName], Nz(a.[CurrentAssigneeName],''))), ?) > 0" & _
+            " OR InStr(1, UCase(Nz(a.[PONumber],'')), ?) > 0" & _
+            " OR InStr(1, UCase(Nz(a.[CurrentAssigneeID],'')), ?) > 0" & _
+            " OR InStr(1, UCase(Nz(a.[Manufacturer],'')), ?) > 0)"
         For i = 1 To 6
             vals.Add token
         Next i
     End If
-    sql = sql & " ORDER BY [Barcode]"
+    sql = sql & " ORDER BY a.[Barcode]"
 
     If vals.Count = 0 Then
         Set rows = IMS_FetchDicts(sql)
@@ -275,7 +306,7 @@ Public Function IMS_QueryAssets( _
         data(r, 3) = DictStr(d, "AssetType")
         data(r, 4) = DictStr(d, "Model")
         data(r, 5) = DictStr(d, "PONumber")
-        data(r, 6) = DictStr(d, "Status")
+        data(r, 6) = DictStr(d, "Status") & IMS_ExpiryNote(DictStr(d, "ExpiryDate"))
         data(r, 7) = DictStr(d, "CurrentAssigneeID")
         data(r, 8) = DictStr(d, "CurrentAssigneeName")
         data(r, 9) = DictStr(d, "Manufacturer")
@@ -347,6 +378,10 @@ Public Function IMS_SaveNewAsset(ByVal fields As Object) As Boolean
         gLastError = "Barcode " & barcode & " is already in the lab database."
         Exit Function
     End If
+    If SerialInUse(DictStr(fields, "MfsSerialNo"), barcode) Then
+        gLastError = "Manufacturer serial number " & Trim$(DictStr(fields, "MfsSerialNo")) & " is already recorded on another asset."
+        Exit Function
+    End If
 
     assigneeId = UCase$(Trim$(DictStr(fields, "AssigneeID")))
     If assigneeId = "" Then
@@ -372,8 +407,8 @@ Public Function IMS_SaveNewAsset(ByVal fields As Object) As Boolean
         If Err.Number = 0 Then
             IMS_ExecOn conn, _
                 "INSERT INTO [Transfer_Audit_Log] ([Timestamp], [AssetBarcode], [PreviousAssigneeID], [NewAssigneeID], [TransferredBy_AdminID], [Remarks]) " & _
-                "VALUES (Now(), ?, '', ?, ?, ?)", _
-                Array(barcode, assigneeId, gEmpID, "Inward receipt")
+                "VALUES (Now(), " & SqlText(barcode) & ", NULL, " & SqlIdOrNull(assigneeId) & ", " & _
+                SqlIdOrNull(gEmpID) & ", " & SqlText("Inward receipt") & ")"
         End If
         If Err.Number = 0 Then conn.CommitTrans
         lastErr = Err.Number
@@ -400,9 +435,12 @@ End Function
 
 Public Function IMS_UpdateAssetMetadata(ByVal fields As Object) As Boolean
     Dim conn As Object
+    Dim asset As Object
     Dim barcode As String
     Dim arrivalSql As String
     Dim expirySql As String
+    Dim revision As Long
+    Dim saved As Long
 
     gLastError = ""
     If Not IMS_IsCustodianRole(gRole) Then
@@ -411,25 +449,39 @@ Public Function IMS_UpdateAssetMetadata(ByVal fields As Object) As Boolean
     End If
     If Not ValidAssetFields(fields, True) Then Exit Function
     barcode = IMS_NormalizeBarcode(DictStr(fields, "Barcode"))
-    If IMS_GetAsset(barcode) Is Nothing Then
+    Set asset = IMS_GetAsset(barcode)
+    If asset Is Nothing Then
         gLastError = "Barcode " & barcode & " was not found."
+        Exit Function
+    End If
+    If SerialInUse(DictStr(fields, "MfsSerialNo"), barcode) Then
+        gLastError = "Manufacturer serial number " & Trim$(DictStr(fields, "MfsSerialNo")) & " is already recorded on another asset."
         Exit Function
     End If
 
     On Error GoTo Fail
+    revision = RevisionOf(asset)
     arrivalSql = IMS_SqlDateOrNull(DictStr(fields, "ArrivalDate"))
     expirySql = IMS_SqlDateOrNull(DictStr(fields, "ExpiryDate"))
     Set conn = IMS_Connect()
-    IMS_ExecOn conn, _
-        "UPDATE [Assets_Master] SET [Ownership]=?, [AssetType]=?, [Manufacturer]=?, [MfsSerialNo]=?, " & _
-        "[Make]=?, [Model]=?, [Capacity_Rev]=?, [Description]=?, [PONumber]=?, " & _
-        "[ArrivalDate]=" & arrivalSql & ", [ExpiryDate]=" & expirySql & " WHERE [Barcode]=?", _
-        Array( _
-            DictStr(fields, "Ownership"), DictStr(fields, "AssetType"), DictStr(fields, "Manufacturer"), _
-            DictStr(fields, "MfsSerialNo"), DictStr(fields, "Make"), DictStr(fields, "Model"), _
-            DictStr(fields, "Capacity_Rev"), DictStr(fields, "Description"), DictStr(fields, "PONumber"), _
-            barcode)
+    saved = IMS_ExecCount(conn, _
+        "UPDATE [Assets_Master] SET [Ownership]=" & SqlText(DictStr(fields, "Ownership")) & _
+        ", [AssetType]=" & SqlText(DictStr(fields, "AssetType")) & _
+        ", [Manufacturer]=" & SqlText(DictStr(fields, "Manufacturer")) & _
+        ", [MfsSerialNo]=" & SqlTextOrNull(DictStr(fields, "MfsSerialNo")) & _
+        ", [Make]=" & SqlText(DictStr(fields, "Make")) & _
+        ", [Model]=" & SqlText(DictStr(fields, "Model")) & _
+        ", [Capacity_Rev]=" & SqlText(DictStr(fields, "Capacity_Rev")) & _
+        ", [Description]=" & SqlText(DictStr(fields, "Description")) & _
+        ", [PONumber]=" & SqlText(DictStr(fields, "PONumber")) & _
+        ", [ArrivalDate]=" & arrivalSql & ", [ExpiryDate]=" & expirySql & _
+        ", [Revision]=Nz([Revision],0)+1 WHERE [Barcode]=" & SqlText(barcode) & _
+        " AND Nz([Revision],0)=" & CStr(revision))
     IMS_Disconnect conn
+    If saved = 0 Then
+        gLastError = "Someone else saved this asset. Scan it again and retry."
+        Exit Function
+    End If
     IMS_UpdateAssetMetadata = True
     Exit Function
 Fail:
@@ -446,9 +498,12 @@ Public Function IMS_TransferAsset( _
     Dim conn As Object
     Dim asset As Object
     Dim previousId As String
+    Dim currentStatus As String
     Dim storedId As String
     Dim storedName As String
     Dim statusName As String
+    Dim revision As Long
+    Dim saved As Long
     Dim attempt As Long
     Dim lastErr As Long
     Dim lastDesc As String
@@ -480,6 +535,12 @@ Public Function IMS_TransferAsset( _
         Exit Function
     End If
     previousId = UCase$(DictStr(asset, "CurrentAssigneeID"))
+    currentStatus = DictStr(asset, "Status")
+    revision = RevisionOf(asset)
+    If Not IMS_StatusMoveAllowed(currentStatus, statusName, gRole) Then
+        gLastError = "Status cannot move from " & currentStatus & " to " & statusName & "."
+        Exit Function
+    End If
 
     Select Case statusName
         Case "Assigned to Engineer"
@@ -514,21 +575,33 @@ Public Function IMS_TransferAsset( _
             End If
     End Select
 
+    If statusName = currentStatus And storedId = previousId Then
+        gLastError = "This transfer does not change the assignee or the status."
+        Exit Function
+    End If
+
     For attempt = 1 To 4
         Set conn = Nothing
+        saved = 0
         On Error Resume Next
         Set conn = IMS_Connect()
         If Err.Number = 0 Then conn.BeginTrans
         If Err.Number = 0 Then
-            IMS_ExecOn conn, _
-                "UPDATE [Assets_Master] SET [CurrentAssigneeID]=?, [CurrentAssigneeName]=?, [Status]=? WHERE [Barcode]=?", _
-                Array(storedId, storedName, statusName, barcode)
+            saved = IMS_ExecCount(conn, _
+                "UPDATE [Assets_Master] SET [CurrentAssigneeID]=" & SqlIdOrNull(storedId) & _
+                ", [CurrentAssigneeName]=" & SqlText(storedName) & _
+                ", [Status]=" & SqlText(statusName) & _
+                ", [Revision]=Nz([Revision],0)+1 WHERE [Barcode]=" & SqlText(barcode) & _
+                " AND Nz([Revision],0)=" & CStr(revision))
+            If saved = 0 And Err.Number = 0 Then
+                Err.Raise vbObjectError + 2048, "IMS", "Someone else saved this asset. Scan it again and retry."
+            End If
         End If
         If Err.Number = 0 Then
             IMS_ExecOn conn, _
                 "INSERT INTO [Transfer_Audit_Log] ([Timestamp], [AssetBarcode], [PreviousAssigneeID], [NewAssigneeID], [TransferredBy_AdminID], [Remarks]) " & _
-                "VALUES (Now(), ?, ?, ?, ?, ?)", _
-                Array(barcode, previousId, storedId, gEmpID, remarks)
+                "VALUES (Now(), " & SqlText(barcode) & ", " & SqlIdOrNull(previousId) & ", " & _
+                SqlIdOrNull(storedId) & ", " & SqlIdOrNull(gEmpID) & ", " & SqlText(remarks) & ")"
         End If
         If Err.Number = 0 Then conn.CommitTrans
         lastErr = Err.Number
@@ -565,16 +638,16 @@ Private Function InsertAssetSql( _
         "INSERT INTO [Assets_Master] (" & _
         "[Barcode], [Ownership], [AssetType], [Manufacturer], [MfsSerialNo], [Make], [Model], " & _
         "[Capacity_Rev], [Description], [PONumber], [ArrivalDate], [ExpiryDate], " & _
-        "[CurrentAssigneeID], [CurrentAssigneeName], [Status], [CreatedBy], [CreatedAt]) VALUES (" & _
+        "[CurrentAssigneeID], [CurrentAssigneeName], [Status], [CreatedBy], [CreatedAt], [Revision]) VALUES (" & _
         SqlText(barcode) & ", " & SqlText(DictStr(fields, "Ownership")) & ", " & _
         SqlText(DictStr(fields, "AssetType")) & ", " & SqlText(DictStr(fields, "Manufacturer")) & ", " & _
-        SqlText(DictStr(fields, "MfsSerialNo")) & ", " & SqlText(DictStr(fields, "Make")) & ", " & _
+        SqlTextOrNull(DictStr(fields, "MfsSerialNo")) & ", " & SqlText(DictStr(fields, "Make")) & ", " & _
         SqlText(DictStr(fields, "Model")) & ", " & SqlText(DictStr(fields, "Capacity_Rev")) & ", " & _
         SqlText(DictStr(fields, "Description")) & ", " & SqlText(DictStr(fields, "PONumber")) & ", " & _
         IMS_SqlDateOrNull(DictStr(fields, "ArrivalDate")) & ", " & _
         IMS_SqlDateOrNull(DictStr(fields, "ExpiryDate")) & ", " & _
-        SqlText(assigneeId) & ", " & SqlText(assigneeName) & ", " & SqlText(statusName) & ", " & _
-        SqlText(gEmpID) & ", Now())"
+        SqlIdOrNull(assigneeId) & ", " & SqlText(assigneeName) & ", " & SqlText(statusName) & ", " & _
+        SqlText(gEmpID) & ", Now(), 0)"
 End Function
 
 Private Function ValidAssetFields(ByVal fields As Object, ByVal requireBarcode As Boolean) As Boolean
@@ -612,6 +685,49 @@ Private Function ValidAssetFields(ByVal fields As Object, ByVal requireBarcode A
     fields("AssetType") = assetType
     fields("Barcode") = barcode
     ValidAssetFields = True
+End Function
+
+Private Function SerialInUse(ByVal serialNo As String, ByVal barcode As String) As Boolean
+    Dim row As Object
+    serialNo = UCase$(Trim$(serialNo))
+    If serialNo = "" Then Exit Function
+    Set row = IMS_FetchOne( _
+        "SELECT [Barcode] FROM [Assets_Master] WHERE UCase(Nz([MfsSerialNo],''))=? AND [Barcode]<>?", _
+        Array(serialNo, barcode))
+    SerialInUse = Not row Is Nothing
+End Function
+
+Private Function RevisionOf(ByVal asset As Object) As Long
+    Dim raw As String
+    raw = DictStr(asset, "Revision")
+    If raw <> "" And IsNumeric(raw) Then RevisionOf = CLng(raw)
+End Function
+
+Public Function IMS_ExecCount(ByVal conn As Object, ByVal sql As String) As Long
+    Dim affected As Variant
+    affected = 0
+    conn.Execute sql, affected
+    If IsNull(affected) Or IsEmpty(affected) Then Exit Function
+    ' Zero means the revision did not match. A negative value means the provider
+    ' did not report a count, so the save is kept.
+    IMS_ExecCount = CLng(affected)
+End Function
+
+Private Function SqlIdOrNull(ByVal id As String) As String
+    id = UCase$(Trim$(id))
+    If id = "" Then
+        SqlIdOrNull = "NULL"
+    Else
+        SqlIdOrNull = SqlText(id)
+    End If
+End Function
+
+Private Function SqlTextOrNull(ByVal value As String) As String
+    If Trim$(value) = "" Then
+        SqlTextOrNull = "NULL"
+    Else
+        SqlTextOrNull = SqlText(Trim$(value))
+    End If
 End Function
 
 Private Function LookupActiveName(ByVal empId As String) As String

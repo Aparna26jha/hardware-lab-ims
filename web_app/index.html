@@ -540,7 +540,7 @@
         if (status && asset.status !== status) return false;
         if (assetType && asset.assetType !== assetType) return false;
         if (!search) return true;
-        const haystack = [asset.barcode, asset.model, asset.assigneeName, asset.assigneeId, asset.poNumber, asset.manufacturer]
+        const haystack = [asset.barcode, asset.model, liveName(db, asset), asset.assigneeId, asset.poNumber, asset.manufacturer]
           .join(" ").toUpperCase();
         return haystack.includes(search);
       }).sort((a, b) => a.barcode.localeCompare(b.barcode));
@@ -570,9 +570,58 @@
       return `<span class="pill ${kind}">${esc(value)}</span>`;
     }
 
+    function liveName(db, asset) {
+      if (!asset.assigneeId) return "";
+      const person = findUser(db, asset.assigneeId);
+      return person ? person.name : (asset.assigneeName || "");
+    }
+
+    function expiryNote(iso) {
+      if (!isIsoDate(iso)) return "";
+      const exp = new Date(iso + "T00:00:00");
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const soon = new Date(today);
+      soon.setDate(soon.getDate() + 30);
+      if (exp < today) return " (Expired)";
+      if (exp <= soon) return " (Expiring soon)";
+      return "";
+    }
+
+    function statusMoveAllowed(fromStatus, toStatus, role) {
+      if (role === "Super Admin") return true;
+      if (fromStatus === toStatus) return true;
+      if (fromStatus === "Scrapped/Returned") return false;
+      const allowed = {
+        "Available in Lab": ["Assigned to Engineer", "Under Maintenance", "Scrapped/Returned"],
+        "Assigned to Engineer": ["Available in Lab", "Under Maintenance", "Scrapped/Returned"],
+        "Under Maintenance": ["Available in Lab", "Assigned to Engineer", "Scrapped/Returned"]
+      };
+      return (allowed[fromStatus] || []).includes(toStatus);
+    }
+
+    function serialTaken(db, serial, barcode) {
+      const key = serial.trim().toUpperCase();
+      if (!key) return false;
+      return db.assets.some((asset) => asset.barcode !== barcode && (asset.mfsSerialNo || "").trim().toUpperCase() === key);
+    }
+
+    function downloadText(filename, text, type) {
+      const blob = new Blob([text], { type });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
     function downloadCsv(filename, rows) {
       const csv = rows.map((row) => row.map((cell) => {
-        const text = String(cell ?? "").replace(/[\r\n]+/g, " ").replace(/"/g, '""');
+        let text = String(cell ?? "").replace(/[\r\n]+/g, " ").replace(/"/g, '""');
+        if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
         return `"${text}"`;
       }).join(",")).join("\r\n");
       const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
@@ -771,9 +820,9 @@
           <td>${esc(asset.assetType)}</td>
           <td>${esc(asset.model)}</td>
           <td class="mono">${esc(asset.poNumber)}</td>
-          <td>${esc(asset.status)}</td>
+          <td>${esc(asset.status + expiryNote(asset.expiryDate))}</td>
           <td class="mono">${esc(asset.assigneeId)}</td>
-          <td>${esc(asset.assigneeName)}</td>
+          <td>${esc(liveName(db, asset))}</td>
         </tr>`).join("") : `<tr><td colspan="8">No assets match this view.</td></tr>`;
       return `
         <h2>${user.role === "User" ? "My assigned hardware" : "Lab inventory"}</h2>
@@ -814,7 +863,7 @@
         <div class="row">${cards}</div>
         ${editor}
         <h2 style="margin-top:22px">Reset sample data</h2>
-        <label for="reset-confirm">Type RESET to erase this browser's inventory and restore the sample set.</label>
+        <label for="reset-confirm">Type RESET to download a backup, erase this browser's inventory, and restore the sample set.</label>
         <input id="reset-confirm" autocomplete="off">
         <div class="row"><button class="btn danger" type="button" data-action="reset-db">Restore sample data</button></div>
         <p id="form-status" class="status" role="status"></p>`;
@@ -928,6 +977,7 @@
           document.getElementById("inward-expiry").value = existing.expiryDate || "";
           document.getElementById("inward-assignee").value = existing.assigneeId || "";
           document.getElementById("inward-assignee").disabled = true;
+          form.dataset.revision = String(existing.revision || 0);
           setStatus("This barcode is already on file. Saving updates metadata only. Use Transfer to change the assignee.", "good");
           return;
         }
@@ -975,8 +1025,17 @@
           arrivalDate: arrival,
           expiryDate: expiry
         };
+        if (serialTaken(db, meta.mfsSerialNo, barcode)) {
+          return setStatus("Manufacturer serial number " + meta.mfsSerialNo + " is already recorded on another asset.", "bad");
+        }
         if (existing) {
+          const form = document.getElementById("inward-form");
+          const seen = Number((form && form.dataset.revision) || 0);
+          if (Number(existing.revision || 0) !== seen) {
+            return setStatus("Someone else saved this asset. Scan it again and retry.", "bad");
+          }
           Object.assign(existing, meta);
+          existing.revision = seen + 1;
           saveDb(db);
           setStatus("Metadata updated for " + barcode + ". Assignee and status were left unchanged.", "good");
           return;
@@ -992,6 +1051,7 @@
         }
         db.assets.push({
           barcode, ...meta, assigneeId, assigneeName, status,
+          revision: 0,
           createdBy: user.empId, createdAt: nowStamp()
         });
         db.audit.push({
@@ -1014,12 +1074,14 @@
         if (box) box.value = code;
         const asset = loadDb().assets.find((item) => item.barcode === code);
         const summary = document.getElementById("transfer-summary");
+        const form = document.getElementById("transfer-form");
+        if (form) form.dataset.revision = asset ? String(asset.revision || 0) : "";
         if (!asset) {
           summary.textContent = "Barcode " + code + " is not in the lab database.";
           setStatus("Barcode was not found.", "bad");
           return;
         }
-        const who = asset.assigneeId ? (asset.assigneeId + " " + asset.assigneeName) : "(in lab cage)";
+        const who = asset.assigneeId ? (asset.assigneeId + " " + liveName(loadDb(), asset)) : "(in lab cage)";
         summary.textContent = asset.ownership + " · " + asset.assetType + " · " + (asset.model || "no model")
           + " · Current assignee: " + who + " · Status: " + asset.status;
         setStatus("Asset loaded.", "good");
@@ -1035,7 +1097,15 @@
         const asset = db.assets.find((item) => item.barcode === barcode);
         if (!asset) return setStatus("Barcode " + barcode + " is not in the lab database.", "bad");
         if (!STATUSES.includes(newStatus)) return setStatus("Choose a status.", "bad");
+        if (!statusMoveAllowed(asset.status, newStatus, user.role)) {
+          return setStatus("Status cannot move from " + asset.status + " to " + newStatus + ".", "bad");
+        }
         if (newStatus === "Scrapped/Returned" && !remarks) return setStatus("Enter remarks when scrapping or returning an asset.", "bad");
+        const form = document.getElementById("transfer-form");
+        const seen = Number((form && form.dataset.revision) || 0);
+        if (Number(asset.revision || 0) !== seen) {
+          return setStatus("Someone else saved this asset. Scan it again and retry.", "bad");
+        }
         const previous = asset.assigneeId || "";
         let storedId = "";
         let storedName = "";
@@ -1054,11 +1124,15 @@
           storedName = assignee.name;
         } else {
           storedId = previous;
-          storedName = asset.assigneeName || "";
+          storedName = liveName(db, asset);
+        }
+        if (newStatus === asset.status && storedId === previous) {
+          return setStatus("This transfer does not change the assignee or the status.", "bad");
         }
         asset.assigneeId = storedId;
         asset.assigneeName = storedName;
         asset.status = newStatus;
+        asset.revision = seen + 1;
         db.audit.push({
           id: db.audit.reduce((max, row) => Math.max(max, row.id || 0), 0) + 1,
           timestamp: nowStamp(),
@@ -1080,8 +1154,9 @@
         const rows = visibleAssets(loadDb(), user);
         const header = ["Barcode", "Ownership", "Asset Type", "Model", "PO Number", "Status", "Assignee ID", "Assignee Name", "Manufacturer", "Mfr Serial", "Make", "Capacity / Rev", "Description", "Arrival Date", "Expiry Date"];
         const body = rows.map((asset) => [
-          asset.barcode, asset.ownership, asset.assetType, asset.model, asset.poNumber, asset.status,
-          asset.assigneeId, asset.assigneeName, asset.manufacturer, asset.mfsSerialNo, asset.make,
+          asset.barcode, asset.ownership, asset.assetType, asset.model, asset.poNumber,
+          asset.status + expiryNote(asset.expiryDate),
+          asset.assigneeId, liveName(loadDb(), asset), asset.manufacturer, asset.mfsSerialNo, asset.make,
           asset.capacityRev, asset.description, asset.arrivalDate, asset.expiryDate
         ]);
         downloadCsv("LabInventory_" + fileStamp() + ".csv", [header, ...body]);
@@ -1114,6 +1189,9 @@
         const newRole = valueOf("role-pick");
         const makeActive = document.getElementById("active-pick").checked;
         const activeSupers = db.users.filter((user) => user.role === "Super Admin" && user.active);
+        if (target.empId === actor.empId && !makeActive) {
+          return setStatus("You cannot turn off your own account.", "bad");
+        }
         if (target.role === "Super Admin" && target.active && activeSupers.length <= 1 && (newRole !== "Super Admin" || !makeActive)) {
           return setStatus("Keep at least one active Super Admin.", "bad");
         }
@@ -1130,11 +1208,12 @@
           setStatus("Type RESET to restore the sample data.", "bad");
           return;
         }
+        downloadText("IMS_backup_" + fileStamp() + ".json", JSON.stringify(loadDb(), null, 2), "application/json");
         localStorage.setItem(STORAGE_KEY, JSON.stringify(freshSeed()));
         state.selectedEmp = "";
         state.tab = "dashboard";
         paint();
-        setStatus("Sample lab data has been restored in this browser.", "good");
+        setStatus("A backup file was downloaded, then the sample data was restored in this browser.", "good");
       }
     };
 

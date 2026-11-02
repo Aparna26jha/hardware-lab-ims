@@ -6,6 +6,24 @@ About 500 engineers use it. Each person has their own employee ID. Two or three 
 
 The system runs on a standard Wipro Windows laptop. Microsoft Edge, Chrome, and Excel are enough. Nothing else is installed, and no administrator rights are required.
 
+## How it is built
+
+- The practice page is `web_app/index.html`. Open it in Edge or Chrome. Saves stay in that browser on that laptop.
+- The lab system is Excel. Each person has their own `IMS_Frontend.xlsm`, so the lab never shares one open workbook.
+- One database, `IMS_Backend.accdb`, sits on a normal shared folder. Every Excel copy reads and writes that same file.
+- Excel creates the database itself through Office. The Access program is not installed.
+- The folder must be a normal file share, for example `\\fileserver\HardwareLab\IMS\`. Keep it out of OneDrive, SharePoint, and any folder that syncs copies by itself. The lab group needs permission to create files there, because Excel writes a small lock file beside the database while someone is saving.
+
+## How it works
+
+- Sign in with an employee ID and a lab access code.
+- Super Admin has complete access, including accounts. Admin is the inventory custodian and is the only role that inwards and allocates. User is the engineer and sees only their own assets.
+- Create account always makes a User.
+- Inward: scan the barcode and press Enter. Type and barcode are required. Ownership and purchase order are required. A known family can fill the empty fields.
+- Transfer: move a board to an engineer, back to the cage, into maintenance, or to Scrapped/Returned. A scrap or return needs a remark. That is the outward record.
+- The dashboard filters AMD-Specific and Wipro-Specific and downloads a CSV.
+- When the custodian saves, the next person who opens Excel sees that save. The practice page does not do this.
+
 ## Options
 
 Sir asked for a common place, three access levels, an inward page, a transfer page, and a view page. These are the three ways to do that on the laptops the lab already has.
@@ -55,7 +73,7 @@ Setup on the Windows laptop, using Excel:
 
 1. Open `vba_app/dist/Lab_Inventory_System_SEED.xlsx`.
 2. Save it as a macro-enabled workbook named `IMS_Frontend.xlsm`. If Excel shows a security bar, choose **Enable Content**.
-3. Press Alt+F11 and import the modules and forms in `vba_app/dist/windows_import`, then paste `ThisWorkbook_Code.txt` into ThisWorkbook. The click path is in [docs/WINDOWS_EXCEL_SETUP.md](docs/WINDOWS_EXCEL_SETUP.md).
+3. Press Alt+F11 and import the modules and forms in `vba_app/dist/windows_import`, including `modSecurity.bas`, then paste `ThisWorkbook_Code.txt` into ThisWorkbook. The click path is in [docs/WINDOWS_EXCEL_SETUP.md](docs/WINDOWS_EXCEL_SETUP.md). If an older workbook was already imported, import the modules again so sign-in can use the updated database.
 4. Press Alt+F8 and run `IMS_EditBackendPath`. Point it at the `.accdb` path on the lab share.
 5. Run `IMS_InitializeBackend` once. That creates the database, the tables, and the sample engineers.
 6. Run `IMS_Start`.
@@ -83,7 +101,19 @@ Self-registration always creates a User. It cannot create an Admin. Sample accou
 | EN1042 | 3001 | User |
 | EN1108 | 3002 | User |
 
-These access codes belong to the sample data. They are not Windows passwords. Before the lab goes live, sign in as SA001, change these codes, and set `SHOW_DEMO_ACCOUNTS` in `web_app/index.html` and `IMS_SHOW_DEMO_FILL` in `vba_app/modGlobals.bas` to false so the sample buttons disappear.
+These access codes belong to the sample data. They are not Windows passwords. The shared database stores a hash of the code. The practice page still shows the sample buttons so the screens can be demonstrated. Before the lab goes live, set `SHOW_DEMO_ACCOUNTS` in `web_app/index.html` and `IMS_SHOW_DEMO_FILL` in `vba_app/modGlobals.bas` to false so those buttons disappear. Real engineers register their own code. A Super Admin turns an old sample account off from Accounts.
+
+## Rules the screens enforce
+
+- A custodian follows the lab flow. Available can go to an engineer, to maintenance, or to scrapped/returned. A scrapped or returned board is put back only by a Super Admin, who still has complete access.
+- A transfer that does not change the person or the status is rejected, so the audit stays meaningful.
+- A manufacturer serial number, once entered, cannot be used on a second asset.
+- The name on the list comes from the user directory, so a renamed person is current on the next view.
+- A date that is past, or inside the next 30 days, shows Expired or Expiring soon beside the status.
+- If two people save the same barcode, the second save asks them to scan it again.
+- Reset copies the database to `IMS_Backend_backup_yyyymmdd_hhnnss.accdb` in the same folder before it reloads the sample set. Type RESET to confirm. Do not reset a folder that already holds real assets.
+- A Super Admin cannot turn off their own account. The last active Super Admin cannot be removed.
+- A CSV cell that starts with `=`, `+`, `-`, or `@` is written as text.
 
 ## What is in this folder
 

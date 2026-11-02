@@ -21,6 +21,11 @@ Public Function IMS_TryLogin(ByVal empId As String, ByVal accessCode As String) 
     End If
 
     On Error GoTo Fail
+    Dim conn As Object
+    Set conn = IMS_Connect()
+    IMS_EnsureSchema conn
+    IMS_Disconnect conn
+    Set conn = Nothing
     Set row = IMS_FetchOne( _
         "SELECT [EmpID], [EmpName], [Role], [AccessCode], [Active] FROM [User_Directory] WHERE [EmpID]=?", _
         Array(empId))
@@ -32,7 +37,7 @@ Public Function IMS_TryLogin(ByVal empId As String, ByVal accessCode As String) 
         gLastError = "This employee ID is inactive. Ask a Super Admin to turn it back on."
         Exit Function
     End If
-    If StrComp(CStr(row("AccessCode")), accessCode, vbBinaryCompare) <> 0 Then
+    If Not IMS_AccessCodeMatches(accessCode, CStr(row("AccessCode"))) Then
         gLastError = "Employee ID or access code is not recognized."
         Exit Function
     End If
@@ -45,6 +50,15 @@ Public Function IMS_TryLogin(ByVal empId As String, ByVal accessCode As String) 
     gEmpName = CStr(row("EmpName"))
     gRole = IMS_CanonicalChoice(CStr(row("Role")), IMS_RoleList())
     IMS_TryLogin = True
+    If Left$(CStr(row("AccessCode")), 3) <> "v1:" Then
+        On Error Resume Next
+        Set conn = IMS_Connect()
+        IMS_ExecOn conn, _
+            "UPDATE [User_Directory] SET [AccessCode]=? WHERE [EmpID]=?", _
+            Array(IMS_HashAccessCode(accessCode), empId)
+        IMS_Disconnect conn
+        On Error GoTo 0
+    End If
     Exit Function
 Fail:
     gEmpID = ""
@@ -87,6 +101,10 @@ Public Function IMS_RegisterUser( _
     End If
 
     On Error GoTo Fail
+    Dim schemaConn As Object
+    Set schemaConn = IMS_Connect()
+    IMS_EnsureSchema schemaConn
+    IMS_Disconnect schemaConn
     Set existing = IMS_FetchOne("SELECT [EmpID] FROM [User_Directory] WHERE [EmpID]=?", Array(empId))
     If Not existing Is Nothing Then
         gLastError = "That employee ID is already registered. Sign in, or ask a Super Admin if the account is inactive."
@@ -97,7 +115,7 @@ Public Function IMS_RegisterUser( _
     Set conn = IMS_Connect()
     IMS_ExecOn conn, _
         "INSERT INTO [User_Directory] ([EmpID], [EmpName], [Role], [AccessCode], [Active]) VALUES (?, ?, 'User', ?, True)", _
-        Array(empId, empName, accessCode)
+        Array(empId, empName, IMS_HashAccessCode(accessCode))
     IMS_Disconnect conn
     IMS_RegisterUser = True
     Exit Function
@@ -157,6 +175,10 @@ Public Function IMS_SetUserRole( _
     newRole = IMS_CanonicalChoice(newRole, IMS_RoleList())
     If newRole = "" Then
         gLastError = "Choose Super Admin, Admin, or User."
+        Exit Function
+    End If
+    If StrComp(empId, gEmpID, vbTextCompare) = 0 And Not makeActive Then
+        gLastError = "You cannot turn off your own account."
         Exit Function
     End If
 
