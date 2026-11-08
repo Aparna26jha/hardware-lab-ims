@@ -24,7 +24,15 @@ Transfer_Audit_Log,PreviousAssigneeID,TEXT(32),No,Blank on first issue from the 
 Transfer_Audit_Log,NewAssigneeID,TEXT(32),No,Blank when returned to the cage or scrapped
 Transfer_Audit_Log,TransferredBy_AdminID,TEXT(32),Yes,Custodian who recorded the move
 Transfer_Audit_Log,Remarks,MEMO,No,Required in the form when status becomes Scrapped/Returned
-User_Directory,EmpID,TEXT(32) PRIMARY KEY,Yes,Employee ID. Stored uppercase.
+User_Directory,EmpID,TEXT(32) PRIMARY KEY,Yes,Alias ID. Stored uppercase.
+User_Directory,Email,TEXT(120),Yes,Mail ID. Must match Allowed_Directory.
+User_Directory,RequestedRole,TEXT(32),No,Role the person asked for. Super Admin sets the real Role.
+User_Directory,Approval,TEXT(16),Yes,Pending, Approved, or Rejected. Sign-in requires Approved.
+User_Directory,LeadID,TEXT(32),No,Lead Admin alias who can view this person's assets.
+User_Directory,WindowsUser,TEXT(64),No,Windows account name recorded at request time. Not used to block sign-in yet.
+Allowed_Directory,Alias,TEXT(32) PRIMARY KEY,Yes,Person who is allowed to request access.
+Allowed_Directory,Email,TEXT(120),Yes,Mail ID that must match the request.
+Allowed_Directory,FullName,TEXT(120),Yes,Name that must match the request.
 User_Directory,EmpName,TEXT(120),Yes,Display name
 User_Directory,Role,TEXT(32),Yes,"Super Admin; Admin; User. Self-registration always creates User."
 User_Directory,AccessCode,TEXT(80),Yes,SHA-256 hash of the lab access code (v1: plus 64 hex digits). Do not reuse a Windows or email password.

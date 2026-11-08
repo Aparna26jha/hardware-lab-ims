@@ -76,12 +76,22 @@ Private Sub InsertSeed()
     Set conn = IMS_Connect()
     On Error GoTo Fail
 
+    Dim directory As Variant
+    directory = SeedDirectory()
+    For r = 1 To UBound(directory, 1)
+        IMS_ExecOn conn, _
+            "INSERT INTO [Allowed_Directory] ([Alias], [Email], [FullName]) VALUES (?, ?, ?)", _
+            Array(CStr(directory(r, 1)), LCase$(CStr(directory(r, 2))), CStr(directory(r, 3)))
+    Next r
+
     users = SeedUsers()
     For r = 1 To UBound(users, 1)
         If CBool(users(r, 5)) Then flagSql = "True" Else flagSql = "False"
         IMS_ExecOn conn, _
-            "INSERT INTO [User_Directory] ([EmpID], [EmpName], [Role], [AccessCode], [Active]) VALUES (?, ?, ?, ?, " & flagSql & ")", _
-            Array(CStr(users(r, 1)), CStr(users(r, 2)), CStr(users(r, 3)), IMS_HashAccessCode(CStr(users(r, 4))))
+            "INSERT INTO [User_Directory] ([EmpID], [EmpName], [Role], [AccessCode], [Active], [Email], [RequestedRole], [Approval], [LeadID]) " & _
+            "VALUES (?, ?, ?, ?, " & flagSql & ", ?, ?, ?, ?)", _
+            Array(CStr(users(r, 1)), CStr(users(r, 2)), CStr(users(r, 3)), IMS_HashAccessCode(CStr(users(r, 4))), _
+                LCase$(CStr(users(r, 6))), CStr(users(r, 8)), CStr(users(r, 7)), CStr(users(r, 9)))
     Next r
 
     assets = SeedAssets()
@@ -141,7 +151,14 @@ Private Function BackupBackendFile() As String
     Dim fso As Object
     Dim dest As String
     Set fso = CreateObject("Scripting.FileSystemObject")
-    dest = fso.GetParentFolderName(gBackendPath) & "\IMS_Backend_backup_" & Format$(Now, "yyyymmdd_hhnnss") & ".accdb"
+    Dim folder As String
+    If Len(Trim$(gBackupPath)) > 0 Then
+        folder = Trim$(gBackupPath)
+    Else
+        folder = fso.GetParentFolderName(fso.GetParentFolderName(gBackendPath)) & "\IMS_Backups"
+    End If
+    If Not fso.FolderExists(folder) Then fso.CreateFolder folder
+    dest = folder & "\IMS_Backend_backup_" & Format$(Now, "yyyymmdd_hhnnss") & ".accdb"
     fso.CopyFile gBackendPath, dest, False
     BackupBackendFile = dest
 End Function

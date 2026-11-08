@@ -195,6 +195,8 @@ Private Sub UserForm_Initialize()
     btnExportAudit.Visible = IMS_IsCustodianRole(gRole)
     If gRole = "User" Then
         lblWho.Caption = gEmpName & "  (" & gEmpID & ")  Engineer view - your assigned assets only"
+    ElseIf gRole = "Lead Admin" Then
+        lblWho.Caption = gEmpName & "  (" & gEmpID & ")  Lead view - your team's assets only"
     Else
         lblWho.Caption = gEmpName & "  (" & gEmpID & ")  " & gRole
     End If

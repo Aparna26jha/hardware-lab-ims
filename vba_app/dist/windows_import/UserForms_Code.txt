@@ -84,6 +84,8 @@ Private Sub UserForm_Initialize()
     btnExportAudit.Visible = IMS_IsCustodianRole(gRole)
     If gRole = "User" Then
         lblWho.Caption = gEmpName & "  (" & gEmpID & ")  Engineer view - your assigned assets only"
+    ElseIf gRole = "Lead Admin" Then
+        lblWho.Caption = gEmpName & "  (" & gEmpID & ")  Lead view - your team's assets only"
     Else
         lblWho.Caption = gEmpName & "  (" & gEmpID & ")  " & gRole
     End If
@@ -441,11 +443,14 @@ Private Sub UserForm_Initialize()
     txtConfirm.MaxLength = 32
     txtAccessCode.PasswordChar = "*"
     txtConfirm.PasswordChar = "*"
+    txtEmail.MaxLength = 120
+    IMS_FillCombo cboRequest, IMS_RoleList(), False
+    cboRequest.Value = "User"
 End Sub
 
 Private Sub btnCreate_Click()
-    If IMS_RegisterUser(txtEmpID.Text, txtEmpName.Text, txtAccessCode.Text, txtConfirm.Text) Then
-        MsgBox "Account created. Sign in with employee ID " & UCase$(Trim$(txtEmpID.Text)) & ".", vbInformation, IMS_APP_NAME
+    If IMS_RegisterUser(txtEmpID.Text, txtEmpName.Text, txtEmail.Text, cboRequest.Value, txtAccessCode.Text, txtConfirm.Text) Then
+        MsgBox "Request sent for " & UCase$(Trim$(txtEmpID.Text)) & "." & vbCrLf & "A Super Admin must approve it before sign-in.", vbInformation, IMS_APP_NAME
         Unload Me
     Else
         IMS_Flash lblMessage, gLastError, True
@@ -568,16 +573,20 @@ Private Sub UserForm_Initialize()
     lblTitle.Font.Bold = True
     lblTitle.Font.Size = 16
     IMS_FillCombo cboRole, IMS_RoleList(), False
-    lstUsers.ColumnCount = 4
-    lstUsers.ColumnWidths = "90 pt;220 pt;120 pt;60 pt"
+    lstUsers.ColumnCount = 6
+    lstUsers.ColumnWidths = "90 pt;180 pt;110 pt;70 pt;0 pt;110 pt"
+    txtAlias.MaxLength = 32
+    txtEmail.MaxLength = 120
+    txtName.MaxLength = 120
     LoadUsers
 End Sub
 
 Private Sub lstUsers_Click()
     If lstUsers.ListIndex < 0 Then Exit Sub
-    lblSelected.Caption = CStr(lstUsers.List(lstUsers.ListIndex, 0)) & "  " & CStr(lstUsers.List(lstUsers.ListIndex, 1))
+    lblSelected.Caption = CStr(lstUsers.List(lstUsers.ListIndex, 0)) & "  " & CStr(lstUsers.List(lstUsers.ListIndex, 1)) & "  requested " & CStr(lstUsers.List(lstUsers.ListIndex, 5))
     cboRole.Value = CStr(lstUsers.List(lstUsers.ListIndex, 2))
-    chkActive.Value = (CStr(lstUsers.List(lstUsers.ListIndex, 3)) = "Yes")
+    chkActive.Value = (CStr(lstUsers.List(lstUsers.ListIndex, 3)) = "Yes" Or CStr(lstUsers.List(lstUsers.ListIndex, 3)) = "Pending")
+    cboLead.Value = CStr(lstUsers.List(lstUsers.ListIndex, 4))
 End Sub
 
 Private Sub btnApply_Click()
@@ -587,9 +596,35 @@ Private Sub btnApply_Click()
         Exit Sub
     End If
     empId = CStr(lstUsers.List(lstUsers.ListIndex, 0))
-    If IMS_SetUserRole(empId, cboRole.Value, CBool(chkActive.Value)) Then
+    If IMS_SetUserRole(empId, cboRole.Value, CBool(chkActive.Value), cboLead.Value) Then
         IMS_Flash lblMessage, "Saved " & empId & ".", False
         LoadUsers
+    Else
+        IMS_Flash lblMessage, gLastError, True
+    End If
+End Sub
+
+Private Sub btnReject_Click()
+    Dim empId As String
+    If lstUsers.ListIndex < 0 Then
+        IMS_Flash lblMessage, "Select an account first.", True
+        Exit Sub
+    End If
+    empId = CStr(lstUsers.List(lstUsers.ListIndex, 0))
+    If IMS_RejectUser(empId) Then
+        IMS_Flash lblMessage, "Rejected " & empId & ".", False
+        LoadUsers
+    Else
+        IMS_Flash lblMessage, gLastError, True
+    End If
+End Sub
+
+Private Sub btnAllow_Click()
+    If IMS_AddAllowedPerson(txtAlias.Text, txtEmail.Text, txtName.Text) Then
+        IMS_Flash lblMessage, "Directory updated for " & UCase$(Trim$(txtAlias.Text)) & ".", False
+        txtAlias.Text = ""
+        txtEmail.Text = ""
+        txtName.Text = ""
     Else
         IMS_Flash lblMessage, gLastError, True
     End If
@@ -605,13 +640,18 @@ Private Sub LoadUsers()
     Dim c As Long
     data = IMS_ListUsers()
     lstUsers.Clear
-    lstUsers.ColumnCount = 4
+    lstUsers.ColumnCount = 6
+    cboLead.Clear
+    cboLead.AddItem ""
     If Not IsArray(data) Then Exit Sub
     For r = 1 To UBound(data, 1)
         lstUsers.AddItem CStr(data(r, 1))
-        For c = 2 To 4
+        For c = 2 To 6
             lstUsers.List(lstUsers.ListCount - 1, c - 1) = CStr(data(r, c))
         Next c
+        If CStr(data(r, 3)) = "Lead Admin" And CStr(data(r, 4)) = "Yes" Then
+            cboLead.AddItem CStr(data(r, 1))
+        End If
     Next r
 End Sub
 

@@ -88,18 +88,22 @@ Publishing `web_app/index.html` on an intranet link lets someone open the same s
 
 | Role | Who | What they can do |
 | --- | --- | --- |
-| Super Admin | Two or three inventory owners | Everything a custodian can do, plus account roles and a sample-data reset |
-| Admin | Inventory custodian | Inward hardware, edit metadata, transfer, export the audit |
-| User | Validation engineer | View and export only the assets assigned to their employee ID |
+| Super Admin | You and your manager | Everything a custodian can do, plus approving access and choosing the real role |
+| Admin | Satish Sir and Noor Sir | Inward hardware, edit metadata, transfer, export the audit. Noor Sir is the custodian who allocates |
+| Lead Admin | A lead with a team | View and export only the assets assigned to that lead's engineers. Cannot inward or transfer |
+| User | Validation engineer | View and export only the assets assigned to their alias |
 
-Self-registration always creates a User. It cannot create an Admin. Sample accounts:
+A new person can request access only when their alias and mail ID are already on the lab directory. The request stays closed until a Super Admin approves it and chooses the role. Sample accounts:
 
-| Employee ID | Access code | Role |
+| Alias ID | Access code | Role |
 | --- | --- | --- |
 | SA001 | 1001 | Super Admin |
 | AD010 | 2001 | Admin |
-| EN1042 | 3001 | User |
-| EN1108 | 3002 | User |
+| LD200 | 4001 | Lead Admin |
+| EN1042 | 3001 | User, on LD200's team |
+| EN1108 | 3002 | User, on LD200's team |
+
+EN2200 / en2200@lab.example / Sample New Engineer is on the directory and has no account yet. Requesting that alias shows the approval step. The sample mail IDs are placeholders until the company list arrives.
 
 These access codes belong to the sample data. They are not Windows passwords. The shared database stores a hash of the code. The practice page still shows the sample buttons so the screens can be demonstrated. Before the lab goes live, set `SHOW_DEMO_ACCOUNTS` in `web_app/index.html` and `IMS_SHOW_DEMO_FILL` in `vba_app/modGlobals.bas` to false so those buttons disappear. Real engineers register their own code. A Super Admin turns an old sample account off from Accounts.
 

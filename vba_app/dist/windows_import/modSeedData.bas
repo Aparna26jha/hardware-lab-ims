@@ -5,28 +5,76 @@ Option Explicit
 ' Re-run the script after editing the JSON. Do not hand-edit this file.
 
 Public Function SeedUsers() As Variant
-    Dim data(1 To 4, 1 To 5) As Variant
+    Dim data(1 To 5, 1 To 9) As Variant
     data(1, 1) = "SA001"
     data(1, 2) = "Sample Super Admin"
     data(1, 3) = "Super Admin"
     data(1, 4) = "1001"
     data(1, 5) = True
+    data(1, 6) = "sa001@lab.example"
+    data(1, 7) = "Approved"
+    data(1, 8) = "Super Admin"
+    data(1, 9) = ""
     data(2, 1) = "AD010"
     data(2, 2) = "Sample Inventory Custodian"
     data(2, 3) = "Admin"
     data(2, 4) = "2001"
     data(2, 5) = True
-    data(3, 1) = "EN1042"
-    data(3, 2) = "Sample Validation Engineer"
-    data(3, 3) = "User"
-    data(3, 4) = "3001"
+    data(2, 6) = "ad010@lab.example"
+    data(2, 7) = "Approved"
+    data(2, 8) = "Admin"
+    data(2, 9) = ""
+    data(3, 1) = "LD200"
+    data(3, 2) = "Sample Lead"
+    data(3, 3) = "Lead Admin"
+    data(3, 4) = "4001"
     data(3, 5) = True
-    data(4, 1) = "EN1108"
-    data(4, 2) = "Sample Signal Engineer"
+    data(3, 6) = "ld200@lab.example"
+    data(3, 7) = "Approved"
+    data(3, 8) = "Lead Admin"
+    data(3, 9) = ""
+    data(4, 1) = "EN1042"
+    data(4, 2) = "Sample Validation Engineer"
     data(4, 3) = "User"
-    data(4, 4) = "3002"
+    data(4, 4) = "3001"
     data(4, 5) = True
+    data(4, 6) = "en1042@lab.example"
+    data(4, 7) = "Approved"
+    data(4, 8) = "User"
+    data(4, 9) = "LD200"
+    data(5, 1) = "EN1108"
+    data(5, 2) = "Sample Signal Engineer"
+    data(5, 3) = "User"
+    data(5, 4) = "3002"
+    data(5, 5) = True
+    data(5, 6) = "en1108@lab.example"
+    data(5, 7) = "Approved"
+    data(5, 8) = "User"
+    data(5, 9) = "LD200"
     SeedUsers = data
+End Function
+
+Public Function SeedDirectory() As Variant
+    Dim data(1 To 6, 1 To 3) As Variant
+    data(1, 1) = "SA001"
+    data(1, 2) = "sa001@lab.example"
+    data(1, 3) = "Sample Super Admin"
+    data(2, 1) = "AD010"
+    data(2, 2) = "ad010@lab.example"
+    data(2, 3) = "Sample Inventory Custodian"
+    data(3, 1) = "LD200"
+    data(3, 2) = "ld200@lab.example"
+    data(3, 3) = "Sample Lead"
+    data(4, 1) = "EN1042"
+    data(4, 2) = "en1042@lab.example"
+    data(4, 3) = "Sample Validation Engineer"
+    data(5, 1) = "EN1108"
+    data(5, 2) = "en1108@lab.example"
+    data(5, 3) = "Sample Signal Engineer"
+    data(6, 1) = "EN2200"
+    data(6, 2) = "en2200@lab.example"
+    data(6, 3) = "Sample New Engineer"
+    SeedDirectory = data
 End Function
 
 Public Function SeedAssets() As Variant

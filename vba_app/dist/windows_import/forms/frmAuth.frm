@@ -15,7 +15,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmAuth
       Width           =   6240
    End
    Begin MSForms.Label lblHint
-      Caption         =   "Use your employee ID and lab access code. Do not reuse a Windows password."
+      Caption         =   "Use your alias ID and lab access code. A new request stays closed until a Super Admin approves it."
       Height          =   480
       Left            =   300
       TabIndex        =   1
@@ -23,7 +23,7 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmAuth
       Width           =   6240
    End
    Begin MSForms.Label lblEmpID
-      Caption         =   "Employee ID"
+      Caption         =   "Alias ID"
       Height          =   240
       Left            =   300
       TabIndex        =   2

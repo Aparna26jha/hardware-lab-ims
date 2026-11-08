@@ -11,7 +11,13 @@ Option Explicit
 Private Const SQL_USERS As String = _
     "CREATE TABLE [User_Directory] (" & _
     "[EmpID] TEXT(32) PRIMARY KEY, " & _
-    "[EmpName] TEXT(120), [Role] TEXT(32), [AccessCode] TEXT(80), [Active] YESNO)"
+    "[EmpName] TEXT(120), [Role] TEXT(32), [AccessCode] TEXT(80), [Active] YESNO, " & _
+    "[Email] TEXT(120), [RequestedRole] TEXT(32), [Approval] TEXT(16), " & _
+    "[LeadID] TEXT(32), [WindowsUser] TEXT(64))"
+
+Private Const SQL_DIRECTORY As String = _
+    "CREATE TABLE [Allowed_Directory] (" & _
+    "[Alias] TEXT(32) PRIMARY KEY, [Email] TEXT(120), [FullName] TEXT(120))"
 
 Private Const SQL_ASSETS As String = _
     "CREATE TABLE [Assets_Master] (" & _
@@ -32,6 +38,11 @@ Public Function IMS_LoadConfig() As Boolean
     On Error GoTo Fail
     gLastError = ""
     gBackendPath = Trim$(CStr(ThisWorkbook.Names("BackendPath").RefersToRange.Value))
+    gBackupPath = ""
+    On Error Resume Next
+    gBackupPath = Trim$(CStr(ThisWorkbook.Names("BackupFolder").RefersToRange.Value))
+    Err.Clear
+    On Error GoTo Fail
     If Len(gBackendPath) < 6 Then
         gLastError = "Set the BackendPath cell on the Config sheet to the full path of IMS_Backend.accdb on the lab share."
         Exit Function
@@ -169,7 +180,14 @@ Public Sub IMS_EnsureSchema(ByVal conn As Object)
     If Not TableExists(conn, "User_Directory") Then IMS_ExecOn conn, SQL_USERS
     If Not TableExists(conn, "Assets_Master") Then IMS_ExecOn conn, SQL_ASSETS
     If Not TableExists(conn, "Transfer_Audit_Log") Then IMS_ExecOn conn, SQL_LOG
+    If Not TableExists(conn, "Allowed_Directory") Then IMS_ExecOn conn, SQL_DIRECTORY
     EnsureIndex conn, "ALTER TABLE [User_Directory] ALTER COLUMN [AccessCode] TEXT(80)"
+    EnsureIndex conn, "ALTER TABLE [User_Directory] ADD COLUMN [Email] TEXT(120)"
+    EnsureIndex conn, "ALTER TABLE [User_Directory] ADD COLUMN [RequestedRole] TEXT(32)"
+    EnsureIndex conn, "ALTER TABLE [User_Directory] ADD COLUMN [Approval] TEXT(16)"
+    EnsureIndex conn, "ALTER TABLE [User_Directory] ADD COLUMN [LeadID] TEXT(32)"
+    EnsureIndex conn, "ALTER TABLE [User_Directory] ADD COLUMN [WindowsUser] TEXT(64)"
+    EnsureIndex conn, "UPDATE [User_Directory] SET [Approval]='Approved' WHERE [Approval] IS NULL OR [Approval]=''"
     EnsureIndex conn, "ALTER TABLE [Assets_Master] ADD COLUMN [Revision] LONG"
     EnsureIndex conn, "UPDATE [Assets_Master] SET [Revision]=0 WHERE [Revision] IS NULL"
     EnsureIndex conn, "UPDATE [Assets_Master] SET [CurrentAssigneeID]=NULL WHERE [CurrentAssigneeID]=''"
@@ -199,6 +217,7 @@ Public Sub IMS_DeleteAllRows(ByVal conn As Object)
     IMS_ExecOn conn, "DELETE FROM [Transfer_Audit_Log]"
     IMS_ExecOn conn, "DELETE FROM [Assets_Master]"
     IMS_ExecOn conn, "DELETE FROM [User_Directory]"
+    IMS_ExecOn conn, "DELETE FROM [Allowed_Directory]"
 End Sub
 
 Public Function IMS_GetAsset(ByVal barcode As String) As Object
@@ -252,6 +271,11 @@ Public Function IMS_QueryAssets( _
           "FROM [Assets_Master] AS a LEFT JOIN [User_Directory] AS u " & _
           "ON a.[CurrentAssigneeID] = u.[EmpID] WHERE 1=1"
     Set vals = New Collection
+    If gRole = "Lead Admin" Then
+        sql = sql & " AND (UCase(Nz(a.[CurrentAssigneeID],''))=? OR UCase(Nz(u.[LeadID],''))=?)"
+        vals.Add UCase$(gEmpID)
+        vals.Add UCase$(gEmpID)
+    End If
 
     If Trim$(ownership) <> "" Then
         sql = sql & " AND a.[Ownership]=?"

@@ -12,6 +12,7 @@ Public gEmpID As String
 Public gEmpName As String
 Public gRole As String
 Public gBackendPath As String
+Public gBackupPath As String
 Public gLastError As String
 
 Public Function IMS_AssetTypeList() As Variant
@@ -27,7 +28,7 @@ Public Function IMS_StatusList() As Variant
 End Function
 
 Public Function IMS_RoleList() As Variant
-    IMS_RoleList = Array("Super Admin", "Admin", "User")
+    IMS_RoleList = Array("Super Admin", "Admin", "Lead Admin", "User")
 End Function
 
 Public Function IMS_OwnershipList() As Variant

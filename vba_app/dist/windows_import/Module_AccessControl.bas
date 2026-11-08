@@ -27,14 +27,25 @@ Public Function IMS_TryLogin(ByVal empId As String, ByVal accessCode As String) 
     IMS_Disconnect conn
     Set conn = Nothing
     Set row = IMS_FetchOne( _
-        "SELECT [EmpID], [EmpName], [Role], [AccessCode], [Active] FROM [User_Directory] WHERE [EmpID]=?", _
+        "SELECT [EmpID], [EmpName], [Role], [AccessCode], [Active], [Approval] FROM [User_Directory] WHERE [EmpID]=?", _
         Array(empId))
     If row Is Nothing Then
         gLastError = "Employee ID or access code is not recognized."
         Exit Function
     End If
+    Dim approval As String
+    approval = UCase$(Trim$(CStr(row("Approval") & "")))
+    If approval = "" Then approval = "APPROVED"
+    If approval = "PENDING" Then
+        gLastError = "This alias is waiting for Super Admin approval."
+        Exit Function
+    End If
+    If approval = "REJECTED" Then
+        gLastError = "This request was not approved. Ask a Super Admin."
+        Exit Function
+    End If
     If Not FlagOn(row("Active")) Then
-        gLastError = "This employee ID is inactive. Ask a Super Admin to turn it back on."
+        gLastError = "This alias is inactive. Ask a Super Admin to turn it back on."
         Exit Function
     End If
     If Not IMS_AccessCodeMatches(accessCode, CStr(row("AccessCode"))) Then
@@ -70,6 +81,8 @@ End Function
 Public Function IMS_RegisterUser( _
     ByVal empId As String, _
     ByVal empName As String, _
+    ByVal email As String, _
+    ByVal requestedRole As String, _
     ByVal accessCode As String, _
     ByVal confirmCode As String) As Boolean
 
@@ -77,18 +90,25 @@ Public Function IMS_RegisterUser( _
     gLastError = ""
     empId = UCase$(Trim$(empId))
     empName = Trim$(empName)
+    email = LCase$(Trim$(email))
+    requestedRole = IMS_CanonicalChoice(requestedRole, IMS_RoleList())
+    If requestedRole = "" Then requestedRole = "User"
     accessCode = Trim$(accessCode)
 
-    If Len(empId) < 3 Or Len(empId) > 32 Then
-        gLastError = "Employee ID must be 3 to 32 characters."
+    If Len(empId) < 2 Or Len(empId) > 32 Then
+        gLastError = "Alias ID must be 2 to 32 characters."
         Exit Function
     End If
     If Not IsSafeId(empId) Then
-        gLastError = "Employee ID may contain letters, digits, and hyphens."
+        gLastError = "Alias ID may contain letters, digits, and hyphens."
         Exit Function
     End If
     If Len(empName) = 0 Or Len(empName) > 120 Then
-        gLastError = "Enter the employee name."
+        gLastError = "Enter the full name."
+        Exit Function
+    End If
+    If Not IsMailId(email) Then
+        gLastError = "Enter the mail ID in the form name@company.com."
         Exit Function
     End If
     If Len(accessCode) < 4 Or Len(accessCode) > 32 Then
@@ -105,17 +125,40 @@ Public Function IMS_RegisterUser( _
     Set schemaConn = IMS_Connect()
     IMS_EnsureSchema schemaConn
     IMS_Disconnect schemaConn
-    Set existing = IMS_FetchOne("SELECT [EmpID] FROM [User_Directory] WHERE [EmpID]=?", Array(empId))
+    Dim allowed As Object
+    Set allowed = IMS_FetchOne( _
+        "SELECT [Alias], [Email], [FullName] FROM [Allowed_Directory] WHERE [Alias]=?", Array(empId))
+    If allowed Is Nothing Then
+        gLastError = "That alias is not on the lab directory. A Super Admin adds a person before they can request access."
+        Exit Function
+    End If
+    If StrComp(LCase$(Trim$(CStr(allowed("Email")))), email, vbBinaryCompare) <> 0 Then
+        gLastError = "The mail ID does not match the lab directory for this alias."
+        Exit Function
+    End If
+    If Len(Trim$(CStr(allowed("FullName")))) > 0 Then
+        If StrComp(Trim$(CStr(allowed("FullName"))), empName, vbTextCompare) <> 0 Then
+            gLastError = "The full name does not match the lab directory for this alias."
+            Exit Function
+        End If
+    End If
+    Set existing = IMS_FetchOne( _
+        "SELECT [EmpID], [Approval] FROM [User_Directory] WHERE [EmpID]=?", Array(empId))
     If Not existing Is Nothing Then
-        gLastError = "That employee ID is already registered. Sign in, or ask a Super Admin if the account is inactive."
+        If UCase$(Trim$(CStr(existing("Approval") & ""))) = "REJECTED" Then
+            gLastError = "This alias was not approved. Ask a Super Admin to review it again."
+        Else
+            gLastError = "That alias is already registered. Sign in, or wait for Super Admin approval."
+        End If
         Exit Function
     End If
 
     Dim conn As Object
     Set conn = IMS_Connect()
     IMS_ExecOn conn, _
-        "INSERT INTO [User_Directory] ([EmpID], [EmpName], [Role], [AccessCode], [Active]) VALUES (?, ?, 'User', ?, True)", _
-        Array(empId, empName, IMS_HashAccessCode(accessCode))
+        "INSERT INTO [User_Directory] ([EmpID], [EmpName], [Role], [AccessCode], [Active], [Email], [RequestedRole], [Approval], [WindowsUser]) " & _
+        "VALUES (?, ?, 'User', ?, False, ?, ?, 'Pending', ?)", _
+        Array(empId, empName, IMS_HashAccessCode(accessCode), email, requestedRole, Environ$("USERNAME"))
     IMS_Disconnect conn
     IMS_RegisterUser = True
     Exit Function
@@ -136,18 +179,21 @@ Public Function IMS_ListUsers() As Variant
     End If
     On Error GoTo Fail
     Set rows = IMS_FetchDicts( _
-        "SELECT [EmpID], [EmpName], [Role], [Active] FROM [User_Directory] ORDER BY [EmpID]")
+        "SELECT [EmpID], [EmpName], [Role], [Active], [Approval], [RequestedRole], [LeadID], [Email] " & _
+        "FROM [User_Directory] ORDER BY [EmpID]")
     If rows.Count = 0 Then
         IMS_ListUsers = Empty
         Exit Function
     End If
-    ReDim data(1 To rows.Count, 1 To 4)
+    ReDim data(1 To rows.Count, 1 To 6)
     For r = 1 To rows.Count
         Set d = rows(r)
         data(r, 1) = CStr(d("EmpID"))
         data(r, 2) = CStr(d("EmpName"))
         data(r, 3) = CStr(d("Role"))
-        If FlagOn(d("Active")) Then data(r, 4) = "Yes" Else data(r, 4) = "No"
+        data(r, 4) = AccountStatus(d)
+        data(r, 5) = CStr(d("LeadID") & "")
+        data(r, 6) = CStr(d("RequestedRole") & "")
     Next r
     IMS_ListUsers = data
     Exit Function
@@ -159,7 +205,8 @@ End Function
 Public Function IMS_SetUserRole( _
     ByVal empId As String, _
     ByVal newRole As String, _
-    ByVal makeActive As Boolean) As Boolean
+    ByVal makeActive As Boolean, _
+    Optional ByVal leadId As String = "") As Boolean
 
     Dim target As Object
     Dim countRow As Object
@@ -174,9 +221,11 @@ Public Function IMS_SetUserRole( _
     empId = UCase$(Trim$(empId))
     newRole = IMS_CanonicalChoice(newRole, IMS_RoleList())
     If newRole = "" Then
-        gLastError = "Choose Super Admin, Admin, or User."
+        gLastError = "Choose Super Admin, Admin, Lead Admin, or User."
         Exit Function
     End If
+    leadId = UCase$(Trim$(leadId))
+    If newRole <> "User" Then leadId = ""
     If StrComp(empId, gEmpID, vbTextCompare) = 0 And Not makeActive Then
         gLastError = "You cannot turn off your own account."
         Exit Function
@@ -200,15 +249,25 @@ Public Function IMS_SetUserRole( _
         End If
     End If
 
+    If leadId <> "" Then
+        Dim lead As Object
+        Set lead = IMS_FetchOne( _
+            "SELECT [Role], [Active], [Approval] FROM [User_Directory] WHERE [EmpID]=?", Array(leadId))
+        If lead Is Nothing Or CStr(lead("Role")) <> "Lead Admin" Or Not FlagOn(lead("Active")) Then
+            gLastError = "Choose an active Lead Admin for this person's team."
+            Exit Function
+        End If
+    End If
+
     Set conn = IMS_Connect()
     If makeActive Then
         IMS_ExecOn conn, _
-            "UPDATE [User_Directory] SET [Role]=?, [Active]=True WHERE [EmpID]=?", _
-            Array(newRole, empId)
+            "UPDATE [User_Directory] SET [Role]=?, [Active]=True, [Approval]='Approved', [LeadID]=? WHERE [EmpID]=?", _
+            Array(newRole, leadId, empId)
     Else
         IMS_ExecOn conn, _
-            "UPDATE [User_Directory] SET [Role]=?, [Active]=False WHERE [EmpID]=?", _
-            Array(newRole, empId)
+            "UPDATE [User_Directory] SET [Role]=?, [Active]=False, [LeadID]=? WHERE [EmpID]=?", _
+            Array(newRole, leadId, empId)
     End If
     IMS_Disconnect conn
     IMS_SetUserRole = True
@@ -217,11 +276,104 @@ Fail:
     gLastError = "The role change did not save. " & Err.Description
 End Function
 
+Public Function IMS_RejectUser(ByVal empId As String) As Boolean
+    gLastError = ""
+    If Not IMS_IsSuperRole(gRole) Then
+        gLastError = "Only a Super Admin can reject a request."
+        Exit Function
+    End If
+    empId = UCase$(Trim$(empId))
+    If StrComp(empId, gEmpID, vbTextCompare) = 0 Then
+        gLastError = "You cannot reject your own account."
+        Exit Function
+    End If
+    On Error GoTo Fail
+    Dim conn As Object
+    Set conn = IMS_Connect()
+    IMS_ExecOn conn, _
+        "UPDATE [User_Directory] SET [Active]=False, [Approval]='Rejected' WHERE [EmpID]=?", _
+        Array(empId)
+    IMS_Disconnect conn
+    IMS_RejectUser = True
+    Exit Function
+Fail:
+    gLastError = "The request was not rejected. " & Err.Description
+End Function
+
+Public Function IMS_AddAllowedPerson( _
+    ByVal aliasId As String, _
+    ByVal email As String, _
+    ByVal fullName As String) As Boolean
+
+    Dim existing As Object
+    gLastError = ""
+    If Not IMS_IsSuperRole(gRole) Then
+        gLastError = "Only a Super Admin can add a person to the lab directory."
+        Exit Function
+    End If
+    aliasId = UCase$(Trim$(aliasId))
+    email = LCase$(Trim$(email))
+    fullName = Trim$(fullName)
+    If Not IsSafeId(aliasId) Or Len(aliasId) < 2 Then
+        gLastError = "Alias ID must be 2 to 32 letters, digits, or hyphens."
+        Exit Function
+    End If
+    If Not IsMailId(email) Then
+        gLastError = "Enter the mail ID in the form name@company.com."
+        Exit Function
+    End If
+    If Len(fullName) = 0 Then
+        gLastError = "Enter the full name on the company record."
+        Exit Function
+    End If
+    On Error GoTo Fail
+    Set existing = IMS_FetchOne("SELECT [Alias] FROM [Allowed_Directory] WHERE [Alias]=?", Array(aliasId))
+    Dim conn As Object
+    Set conn = IMS_Connect()
+    If existing Is Nothing Then
+        IMS_ExecOn conn, _
+            "INSERT INTO [Allowed_Directory] ([Alias], [Email], [FullName]) VALUES (?, ?, ?)", _
+            Array(aliasId, email, fullName)
+    Else
+        IMS_ExecOn conn, _
+            "UPDATE [Allowed_Directory] SET [Email]=?, [FullName]=? WHERE [Alias]=?", _
+            Array(email, fullName, aliasId)
+    End If
+    IMS_Disconnect conn
+    IMS_AddAllowedPerson = True
+    Exit Function
+Fail:
+    gLastError = "The directory row did not save. " & Err.Description
+End Function
+
 Public Sub IMS_SignOut()
     gEmpID = ""
     gEmpName = ""
     gRole = ""
 End Sub
+
+Private Function AccountStatus(ByVal d As Object) As String
+    Dim approval As String
+    approval = UCase$(Trim$(CStr(d("Approval") & "")))
+    If approval = "PENDING" Then
+        AccountStatus = "Pending"
+    ElseIf approval = "REJECTED" Then
+        AccountStatus = "Rejected"
+    ElseIf FlagOn(d("Active")) Then
+        AccountStatus = "Yes"
+    Else
+        AccountStatus = "No"
+    End If
+End Function
+
+Private Function IsMailId(ByVal email As String) As Boolean
+    Dim atPos As Long
+    atPos = InStr(1, email, "@")
+    If atPos < 2 Then Exit Function
+    If InStr(atPos + 1, email, ".") < atPos + 2 Then Exit Function
+    If Len(email) > 120 Then Exit Function
+    IsMailId = True
+End Function
 
 Private Function FlagOn(ByVal v As Variant) As Boolean
     If IsNull(v) Then Exit Function
