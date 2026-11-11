@@ -300,8 +300,10 @@ Public Function IMS_QueryAssets( _
             " OR InStr(1, UCase(Nz(u.[EmpName], Nz(a.[CurrentAssigneeName],''))), ?) > 0" & _
             " OR InStr(1, UCase(Nz(a.[PONumber],'')), ?) > 0" & _
             " OR InStr(1, UCase(Nz(a.[CurrentAssigneeID],'')), ?) > 0" & _
-            " OR InStr(1, UCase(Nz(a.[Manufacturer],'')), ?) > 0)"
-        For i = 1 To 6
+            " OR InStr(1, UCase(Nz(a.[Manufacturer],'')), ?) > 0" & _
+            " OR InStr(1, UCase(Nz(a.[MfsSerialNo],'')), ?) > 0" & _
+            " OR InStr(1, UCase(Nz(a.[Description],'')), ?) > 0)"
+        For i = 1 To 8
             vals.Add token
         Next i
     End If
@@ -378,6 +380,192 @@ Public Function IMS_QueryAudit() As Variant
         data(r, 7) = DictStr(d, "Remarks")
     Next r
     IMS_QueryAudit = data
+End Function
+
+' Latest audit rows across the lab, newest first.
+' Columns: when, barcode, from, to, by, remarks.
+Public Function IMS_RecentActivity(ByVal maxRows As Long) As Variant
+    Dim rows As Collection
+    gLastError = ""
+    IMS_RecentActivity = Empty
+    If Not IMS_IsCustodianRole(gRole) Then
+        gLastError = "Recent activity is limited to inventory custodians."
+        Exit Function
+    End If
+    If maxRows < 1 Or maxRows > 100 Then maxRows = 10
+    On Error GoTo Fail
+    Set rows = IMS_FetchDicts( _
+        "SELECT TOP " & CStr(maxRows) & " [LogID], [Timestamp], [AssetBarcode], [PreviousAssigneeID], " & _
+        "[NewAssigneeID], [TransferredBy_AdminID], [Remarks] FROM [Transfer_Audit_Log] " & _
+        "ORDER BY [Timestamp] DESC, [LogID] DESC")
+    IMS_RecentActivity = LogRows(rows)
+    Exit Function
+Fail:
+    gLastError = "Could not read recent activity. " & Err.Description
+End Function
+
+' Every audit row for one barcode, newest first. Same columns as IMS_RecentActivity.
+Public Function IMS_AssetHistory(ByVal barcode As String) As Variant
+    Dim rows As Collection
+    gLastError = ""
+    IMS_AssetHistory = Empty
+    If Not IMS_IsCustodianRole(gRole) Then
+        gLastError = "Asset history is limited to inventory custodians."
+        Exit Function
+    End If
+    On Error GoTo Fail
+    Set rows = IMS_FetchDicts( _
+        "SELECT [LogID], [Timestamp], [AssetBarcode], [PreviousAssigneeID], [NewAssigneeID], " & _
+        "[TransferredBy_AdminID], [Remarks] FROM [Transfer_Audit_Log] WHERE [AssetBarcode]=? " & _
+        "ORDER BY [Timestamp] DESC, [LogID] DESC", _
+        Array(IMS_NormalizeBarcode(barcode)))
+    IMS_AssetHistory = LogRows(rows)
+    Exit Function
+Fail:
+    gLastError = "Could not read the history for this asset. " & Err.Description
+End Function
+
+' Summary counts over rows returned by IMS_QueryAssets.
+Public Function IMS_CountAssets(ByVal data As Variant) As Object
+    Dim d As Object
+    Dim r As Long
+    Set d = CreateObject("Scripting.Dictionary")
+    d.CompareMode = 1
+    d("Total") = 0
+    d("Available") = 0
+    d("Assigned") = 0
+    d("Maintenance") = 0
+    d("Scrapped") = 0
+    d("AMD") = 0
+    d("Wipro") = 0
+    If IsArray(data) Then
+        For r = 1 To UBound(data, 1)
+            d("Total") = d("Total") + 1
+            Select Case RawStatus(data, r)
+                Case "Available in Lab": d("Available") = d("Available") + 1
+                Case "Assigned to Engineer": d("Assigned") = d("Assigned") + 1
+                Case "Under Maintenance": d("Maintenance") = d("Maintenance") + 1
+                Case "Scrapped/Returned": d("Scrapped") = d("Scrapped") + 1
+            End Select
+            If CStr(data(r, 2)) = "AMD-Specific" Then
+                d("AMD") = d("AMD") + 1
+            ElseIf CStr(data(r, 2)) = "Wipro-Specific" Then
+                d("Wipro") = d("Wipro") + 1
+            End If
+        Next r
+    End If
+    Set IMS_CountAssets = d
+End Function
+
+' Assets in rows from IMS_QueryAssets that are expired or expire within 30 days,
+' earliest date first. Scrapped or returned assets are left out.
+' Columns: barcode, expiry text, model, where it is.
+Public Function IMS_ExpiryRows(ByVal data As Variant) As Variant
+    Dim picked() As Long
+    Dim n As Long
+    Dim r As Long
+    Dim i As Long
+    Dim j As Long
+    Dim t As Long
+    Dim out As Variant
+    Dim note As String
+    IMS_ExpiryRows = Empty
+    If Not IsArray(data) Then Exit Function
+    ReDim picked(1 To UBound(data, 1))
+    For r = 1 To UBound(data, 1)
+        If RawStatus(data, r) <> "Scrapped/Returned" Then
+            If IMS_ExpiryNote(CStr(data(r, 15))) <> "" Then
+                n = n + 1
+                picked(n) = r
+            End If
+        End If
+    Next r
+    If n = 0 Then Exit Function
+    For i = 2 To n
+        t = picked(i)
+        j = i - 1
+        Do While j >= 1
+            If CStr(data(picked(j), 15)) <= CStr(data(t, 15)) Then Exit Do
+            picked(j + 1) = picked(j)
+            j = j - 1
+        Loop
+        picked(j + 1) = t
+    Next i
+    ReDim out(1 To n, 1 To 4)
+    For i = 1 To n
+        r = picked(i)
+        note = IMS_ExpiryNote(CStr(data(r, 15)))
+        out(i, 1) = CStr(data(r, 1))
+        If note = " (Expired)" Then
+            out(i, 2) = "Expired " & Left$(CStr(data(r, 15)), 10)
+        Else
+            out(i, 2) = "Expires " & Left$(CStr(data(r, 15)), 10)
+        End If
+        out(i, 3) = CStr(data(r, 4))
+        If CStr(data(r, 7)) = "" Then
+            out(i, 4) = "in the lab"
+        Else
+            out(i, 4) = "held by " & CStr(data(r, 7))
+        End If
+    Next i
+    IMS_ExpiryRows = out
+End Function
+
+Private Function RawStatus(ByVal data As Variant, ByVal r As Long) As String
+    Dim s As String
+    Dim note As String
+    s = CStr(data(r, 6))
+    note = IMS_ExpiryNote(CStr(data(r, 15)))
+    If note <> "" And Len(s) > Len(note) Then
+        If Right$(s, Len(note)) = note Then s = Left$(s, Len(s) - Len(note))
+    End If
+    RawStatus = s
+End Function
+
+Private Function LogRows(ByVal rows As Collection) As Variant
+    Dim book As Object
+    Dim data As Variant
+    Dim d As Object
+    Dim r As Long
+    If rows.Count = 0 Then
+        LogRows = Empty
+        Exit Function
+    End If
+    Set book = NameBook()
+    ReDim data(1 To rows.Count, 1 To 6)
+    For r = 1 To rows.Count
+        Set d = rows(r)
+        data(r, 1) = UiStamp(DictStr(d, "Timestamp"))
+        data(r, 2) = DictStr(d, "AssetBarcode")
+        data(r, 3) = PersonText(DictStr(d, "PreviousAssigneeID"), book)
+        data(r, 4) = PersonText(DictStr(d, "NewAssigneeID"), book)
+        data(r, 5) = DictStr(d, "TransferredBy_AdminID")
+        data(r, 6) = DictStr(d, "Remarks")
+    Next r
+    LogRows = data
+End Function
+
+Private Function NameBook() As Object
+    Dim book As Object
+    Dim rows As Collection
+    Dim d As Object
+    Set book = CreateObject("Scripting.Dictionary")
+    book.CompareMode = 1
+    Set rows = IMS_FetchDicts("SELECT [EmpID], [EmpName] FROM [User_Directory]")
+    For Each d In rows
+        book(DictStr(d, "EmpID")) = DictStr(d, "EmpName")
+    Next d
+    Set NameBook = book
+End Function
+
+Private Function PersonText(ByVal empId As String, ByVal book As Object) As String
+    If empId = "" Then
+        PersonText = "Not assigned"
+    ElseIf book.Exists(empId) Then
+        PersonText = empId & " " & book(empId)
+    Else
+        PersonText = empId
+    End If
 End Function
 
 Public Function IMS_SaveNewAsset(ByVal fields As Object) As Boolean
@@ -887,13 +1075,19 @@ End Sub
 
 Private Sub EnsureParentFolder(ByVal filePath As String)
     Dim fso As Object
-    Dim folder As String
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    IMS_EnsureFolder fso.GetParentFolderName(filePath)
+End Sub
+
+' Creates a local or UNC folder and any missing parents.
+Public Sub IMS_EnsureFolder(ByVal folder As String)
+    Dim fso As Object
     Dim parts() As String
     Dim cur As String
     Dim startAt As Long
     Dim i As Long
     Set fso = CreateObject("Scripting.FileSystemObject")
-    folder = fso.GetParentFolderName(filePath)
+    If Right$(folder, 1) = "\" And Len(folder) > 3 Then folder = Left$(folder, Len(folder) - 1)
     If Len(folder) = 0 Then Exit Sub
     If fso.FolderExists(folder) Then Exit Sub
     If Left$(folder, 2) = "\\" Then

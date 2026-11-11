@@ -6,247 +6,6 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmInward
    ClientTop       =   465
    ClientWidth     =   14400
    StartUpPosition =   1  'CenterOwner
-   Begin MSForms.Label lblTitle
-      Caption         =   "Inward material"
-      Height          =   360
-      Left            =   240
-      TabIndex        =   0
-      Top             =   120
-      Width           =   6800
-   End
-   Begin MSForms.Label lblBarcode
-      Caption         =   "Barcode / asset tag"
-      Height          =   240
-      Left            =   240
-      TabIndex        =   1
-      Top             =   600
-      Width           =   6800
-   End
-   Begin MSForms.TextBox txtBarcode
-      Height          =   360
-      Left            =   240
-      TabIndex        =   2
-      Top             =   840
-      Width           =   6800
-   End
-   Begin MSForms.OptionButton optAMD
-      Caption         =   "AMD-Specific"
-      GroupName       =   "Ownership"
-      Height          =   300
-      Left            =   240
-      TabIndex        =   3
-      Top             =   1320
-      Width           =   2400
-   End
-   Begin MSForms.OptionButton optWipro
-      Caption         =   "Wipro-Specific"
-      GroupName       =   "Ownership"
-      Height          =   300
-      Left            =   2760
-      TabIndex        =   4
-      Top             =   1320
-      Width           =   2800
-   End
-   Begin MSForms.Label lblAssetType
-      Caption         =   "Asset type"
-      Height          =   240
-      Left            =   240
-      TabIndex        =   5
-      Top             =   1740
-      Width           =   6800
-   End
-   Begin MSForms.ComboBox cboAssetType
-      Height          =   360
-      Left            =   240
-      Style           =   2
-      TabIndex        =   6
-      Top             =   1980
-      Width           =   6800
-   End
-   Begin MSForms.Label lblPO
-      Caption         =   "Purchase order"
-      Height          =   240
-      Left            =   240
-      TabIndex        =   7
-      Top             =   2460
-      Width           =   6800
-   End
-   Begin MSForms.TextBox txtPONumber
-      Height          =   360
-      Left            =   240
-      TabIndex        =   8
-      Top             =   2700
-      Width           =   6800
-   End
-   Begin MSForms.Label lblManufacturer
-      Caption         =   "Manufacturer"
-      Height          =   240
-      Left            =   240
-      TabIndex        =   9
-      Top             =   3180
-      Width           =   3200
-   End
-   Begin MSForms.TextBox txtManufacturer
-      Height          =   360
-      Left            =   240
-      TabIndex        =   10
-      Top             =   3420
-      Width           =   3200
-   End
-   Begin MSForms.Label lblMfs
-      Caption         =   "Manufacturer serial"
-      Height          =   240
-      Left            =   3600
-      TabIndex        =   11
-      Top             =   3180
-      Width           =   3440
-   End
-   Begin MSForms.TextBox txtMfsSerialNo
-      Height          =   360
-      Left            =   3600
-      TabIndex        =   12
-      Top             =   3420
-      Width           =   3440
-   End
-   Begin MSForms.Label lblMake
-      Caption         =   "Make"
-      Height          =   240
-      Left            =   240
-      TabIndex        =   13
-      Top             =   3900
-      Width           =   3200
-   End
-   Begin MSForms.TextBox txtMake
-      Height          =   360
-      Left            =   240
-      TabIndex        =   14
-      Top             =   4140
-      Width           =   3200
-   End
-   Begin MSForms.Label lblModel
-      Caption         =   "Model"
-      Height          =   240
-      Left            =   3600
-      TabIndex        =   15
-      Top             =   3900
-      Width           =   3440
-   End
-   Begin MSForms.TextBox txtModel
-      Height          =   360
-      Left            =   3600
-      TabIndex        =   16
-      Top             =   4140
-      Width           =   3440
-   End
-   Begin MSForms.Label lblCapacity
-      Caption         =   "Capacity / revision"
-      Height          =   240
-      Left            =   240
-      TabIndex        =   17
-      Top             =   4620
-      Width           =   6800
-   End
-   Begin MSForms.TextBox txtCapacityRev
-      Height          =   360
-      Left            =   240
-      TabIndex        =   18
-      Top             =   4860
-      Width           =   6800
-   End
-   Begin MSForms.Label lblDescription
-      Caption         =   "Description"
-      Height          =   240
-      Left            =   7320
-      TabIndex        =   19
-      Top             =   600
-      Width           =   6800
-   End
-   Begin MSForms.TextBox txtDescription
-      Height          =   960
-      Left            =   7320
-      MultiLine       =   -1
-      TabIndex        =   20
-      Top             =   840
-      Width           =   6800
-   End
-   Begin MSForms.Label lblArrival
-      Caption         =   "Arrival date (YYYY-MM-DD)"
-      Height          =   240
-      Left            =   7320
-      TabIndex        =   21
-      Top             =   1980
-      Width           =   3200
-   End
-   Begin MSForms.TextBox txtArrivalDate
-      Height          =   360
-      Left            =   7320
-      TabIndex        =   22
-      Top             =   2220
-      Width           =   3200
-   End
-   Begin MSForms.Label lblExpiry
-      Caption         =   "Expiry date (YYYY-MM-DD)"
-      Height          =   240
-      Left            =   10680
-      TabIndex        =   23
-      Top             =   1980
-      Width           =   3440
-   End
-   Begin MSForms.TextBox txtExpiryDate
-      Height          =   360
-      Left            =   10680
-      TabIndex        =   24
-      Top             =   2220
-      Width           =   3440
-   End
-   Begin MSForms.Label lblAssignee
-      Caption         =   "Initial assignee employee ID (optional)"
-      Height          =   240
-      Left            =   7320
-      TabIndex        =   25
-      Top             =   2760
-      Width           =   6800
-   End
-   Begin MSForms.TextBox txtInitialAssignee
-      Height          =   360
-      Left            =   7320
-      TabIndex        =   26
-      Top             =   3000
-      Width           =   6800
-   End
-   Begin MSForms.CommandButton btnSave
-      Caption         =   "Save"
-      Height          =   420
-      Left            =   7320
-      TabIndex        =   27
-      Top             =   3600
-      Width           =   1800
-   End
-   Begin MSForms.CommandButton btnClear
-      Caption         =   "Clear"
-      Height          =   420
-      Left            =   9240
-      TabIndex        =   28
-      Top             =   3600
-      Width           =   1500
-   End
-   Begin MSForms.CommandButton btnClose
-      Caption         =   "Close"
-      Cancel          =   -1
-      Height          =   420
-      Left            =   10860
-      TabIndex        =   29
-      Top             =   3600
-      Width           =   1500
-   End
-   Begin MSForms.Label lblMessage
-      Caption         =   "Scan a barcode. The scanner's Enter key looks the tag up."
-      Height          =   1200
-      Left            =   7320
-      TabIndex        =   30
-      Top             =   4200
-      Width           =   6800
-   End
 End
 Attribute VB_Name = "frmInward"
 Attribute VB_GlobalNameSpace = False
@@ -255,23 +14,83 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
 
+' Controls are created in UserForm_Initialize (see modUi).
+' No button is the Default button: the scanner sends Enter after each barcode.
+
 Private mExisting As Boolean
+Private mBlocked As Boolean
+
+Private lblMessage As MSForms.Label
+Private WithEvents txtBarcode As MSForms.TextBox
+Private optAMD As MSForms.OptionButton
+Private optWipro As MSForms.OptionButton
+Private cboAssetType As MSForms.ComboBox
+Private txtPONumber As MSForms.TextBox
+Private txtManufacturer As MSForms.TextBox
+Private txtMfsSerialNo As MSForms.TextBox
+Private txtMake As MSForms.TextBox
+Private WithEvents txtModel As MSForms.TextBox
+Private txtCapacityRev As MSForms.TextBox
+Private txtDescription As MSForms.TextBox
+Private txtArrivalDate As MSForms.TextBox
+Private txtExpiryDate As MSForms.TextBox
+Private txtInitialAssignee As MSForms.TextBox
+Private WithEvents btnSave As MSForms.CommandButton
+Private WithEvents btnClear As MSForms.CommandButton
+Private WithEvents btnClose As MSForms.CommandButton
 
 Private Sub UserForm_Initialize()
     If Not IMS_IsCustodianRole(gRole) Then
-        MsgBox "Only inventory custodians can inward hardware.", vbExclamation, IMS_APP_NAME
-        Unload Me
+        mBlocked = True
         Exit Sub
     End If
-    lblTitle.Font.Bold = True
-    lblTitle.Font.Size = 16
+    UiSizeForm Me, "Hardware Lab IMS - Inward", 700, 384
+    UiTitle Me, "lblTitle", "Inward material", 18, 12, 660
+    UiHint Me, "lblHint", "Scan the barcode and let the scanner press Enter. A known board fills in its details. Fields marked * are required.", 18, 38, 660, 26
+
+    UiLabel Me, "lblBarcode", "Barcode / asset tag *", 18, 70, 320, 12
+    Set txtBarcode = UiText(Me, "txtBarcode", 18, 84, 320, 64)
+    UiLabel Me, "lblOwner", "Ownership *", 18, 108, 320, 12
+    Set optAMD = UiOption(Me, "optAMD", "AMD-Specific", "Ownership", 18, 122, 130)
+    Set optWipro = UiOption(Me, "optWipro", "Wipro-Specific", "Ownership", 160, 122, 140)
+    UiLabel Me, "lblAssetType", "Asset type *", 18, 146, 320, 12
+    Set cboAssetType = UiCombo(Me, "cboAssetType", 18, 160, 320)
     IMS_FillCombo cboAssetType, IMS_AssetTypeList(), False
-    txtBarcode.MaxLength = 64
-    txtInitialAssignee.MaxLength = 32
+    UiLabel Me, "lblPO", "Purchase order *", 18, 184, 320, 12
+    Set txtPONumber = UiText(Me, "txtPONumber", 18, 198, 320, 64)
+    UiLabel Me, "lblManufacturer", "Manufacturer", 18, 222, 155, 12
+    Set txtManufacturer = UiText(Me, "txtManufacturer", 18, 236, 155, 120)
+    UiLabel Me, "lblMfs", "Manufacturer serial", 183, 222, 155, 12
+    Set txtMfsSerialNo = UiText(Me, "txtMfsSerialNo", 183, 236, 155, 64)
+    UiLabel Me, "lblMake", "Make", 18, 260, 155, 12
+    Set txtMake = UiText(Me, "txtMake", 18, 274, 155, 80)
+    UiLabel Me, "lblModel", "Model", 183, 260, 155, 12
+    Set txtModel = UiText(Me, "txtModel", 183, 274, 155, 80)
+    UiLabel Me, "lblCapacity", "Capacity / revision", 18, 298, 320, 12
+    Set txtCapacityRev = UiText(Me, "txtCapacityRev", 18, 312, 320, 80)
+
+    UiLabel Me, "lblDescription", "Description", 360, 70, 320, 12
+    Set txtDescription = UiMemo(Me, "txtDescription", 360, 84, 320, 56)
+    UiLabel Me, "lblArrival", "Arrival date (YYYY-MM-DD)", 360, 146, 155, 12
+    Set txtArrivalDate = UiText(Me, "txtArrivalDate", 360, 160, 155, 10)
+    UiLabel Me, "lblExpiry", "Expiry date (YYYY-MM-DD)", 525, 146, 155, 12
+    Set txtExpiryDate = UiText(Me, "txtExpiryDate", 525, 160, 155, 10)
+    UiLabel Me, "lblAssignee", "Give it to this alias ID now (optional)", 360, 184, 320, 12
+    Set txtInitialAssignee = UiText(Me, "txtInitialAssignee", 360, 198, 320, 32)
+    Set btnSave = UiButton(Me, "btnSave", "Save", 360, 230, 90)
+    Set btnClear = UiButton(Me, "btnClear", "Clear", 458, 230, 80)
+    Set btnClose = UiButton(Me, "btnClose", "Close", 546, 230, 80)
+    btnClose.Cancel = True
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 360, 262, 320, 70)
     ClearForm
 End Sub
 
 Private Sub UserForm_Activate()
+    If mBlocked Then
+        MsgBox "Only inventory custodians can inward hardware.", vbExclamation, IMS_APP_NAME
+        Unload Me
+        Exit Sub
+    End If
     On Error Resume Next
     txtBarcode.SetFocus
 End Sub
@@ -283,12 +102,8 @@ Private Sub txtBarcode_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shi
     End If
 End Sub
 
-Private Sub txtModel_AfterUpdate()
-    Dim hint As Object
-    If mExisting Then Exit Sub
-    If Trim$(txtModel.Text) = "" Then Exit Sub
-    Set hint = IMS_SuggestFromModel(txtModel.Text)
-    FillEmpty hint
+Private Sub txtModel_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyReturn Or KeyCode = vbKeyTab Then ApplyModel
 End Sub
 
 Private Sub btnSave_Click()
@@ -296,14 +111,14 @@ Private Sub btnSave_Click()
     Set fields = CollectFields()
     If mExisting Then
         If IMS_UpdateAssetMetadata(fields) Then
-            IMS_Flash lblMessage, "Metadata updated for " & fields("Barcode") & ". Assignee and status were left unchanged.", False
+            IMS_Flash lblMessage, "Details updated for " & fields("Barcode") & ". The holder and status did not change.", False
         Else
             IMS_Flash lblMessage, gLastError, True
         End If
     Else
         If IMS_SaveNewAsset(fields) Then
-            IMS_Flash lblMessage, "Inward saved for " & fields("Barcode") & ".", False
             ClearForm
+            IMS_Flash lblMessage, "Inward saved for " & fields("Barcode") & ". Scan the next barcode.", False
         Else
             IMS_Flash lblMessage, gLastError, True
         End If
@@ -329,11 +144,12 @@ Private Sub ApplyBarcode()
         IMS_Flash lblMessage, "Barcode must be 4 to 64 letters, digits, hyphens, or underscores.", True
         Exit Sub
     End If
+    On Error GoTo Fail
     Set asset = IMS_GetAsset(code)
     If Not asset Is Nothing Then
         mExisting = True
         FillFromAsset asset
-        IMS_Flash lblMessage, "This barcode is already on file. Saving updates metadata only. Use Transfer to change the assignee.", False
+        IMS_Flash lblMessage, "This barcode is already on file. Save updates its details only. Use Transfer to change who holds it.", False
         Exit Sub
     End If
     mExisting = False
@@ -341,15 +157,27 @@ Private Sub ApplyBarcode()
     Set hint = IMS_SuggestFromBarcode(code)
     FillEmpty hint
     If hint.Exists("Model") Then
-        IMS_Flash lblMessage, "New barcode. Empty fields were filled from the latest " & IMS_FamilyPrefix(code) & " asset.", False
+        IMS_Flash lblMessage, "New barcode. Empty fields were filled from the latest " & IMS_FamilyPrefix(code) & " asset. Check them, add the PO, and Save.", False
     Else
-        IMS_Flash lblMessage, "New barcode. Fill the purchase order before saving.", False
+        IMS_Flash lblMessage, "New barcode. Choose AMD or Wipro, the type, and the purchase order, then Save.", False
     End If
+    Exit Sub
+Fail:
+    IMS_Flash lblMessage, "Could not read the lab database. " & Err.Description, True
+End Sub
+
+Private Sub ApplyModel()
+    Dim hint As Object
+    If mExisting Then Exit Sub
+    If Trim$(txtModel.Text) = "" Then Exit Sub
+    On Error Resume Next
+    Set hint = IMS_SuggestFromModel(txtModel.Text)
+    FillEmpty hint
 End Sub
 
 Private Sub FillFromAsset(ByVal asset As Object)
     SetOwnership DictStr(asset, "Ownership")
-    cboAssetType.Value = DictStr(asset, "AssetType")
+    UiPick cboAssetType, DictStr(asset, "AssetType")
     txtPONumber.Text = DictStr(asset, "PONumber")
     txtManufacturer.Text = DictStr(asset, "Manufacturer")
     txtMfsSerialNo.Text = DictStr(asset, "MfsSerialNo")
@@ -365,7 +193,7 @@ End Sub
 
 Private Sub FillEmpty(ByVal hint As Object)
     If hint Is Nothing Then Exit Sub
-    If Len(Trim$(cboAssetType.Value & "")) = 0 And hint.Exists("AssetType") Then cboAssetType.Value = hint("AssetType")
+    If cboAssetType.ListIndex < 0 And hint.Exists("AssetType") Then UiPick cboAssetType, CStr(hint("AssetType"))
     If txtManufacturer.Text = "" And hint.Exists("Manufacturer") Then txtManufacturer.Text = hint("Manufacturer")
     If txtMake.Text = "" And hint.Exists("Make") Then txtMake.Text = hint("Make")
     If txtModel.Text = "" And hint.Exists("Model") Then txtModel.Text = hint("Model")
@@ -384,7 +212,7 @@ Private Function CollectFields() As Object
     Else
         d("Ownership") = ""
     End If
-    d("AssetType") = cboAssetType.Value
+    d("AssetType") = cboAssetType.Text
     d("PONumber") = txtPONumber.Text
     d("Manufacturer") = txtManufacturer.Text
     d("MfsSerialNo") = txtMfsSerialNo.Text
@@ -420,7 +248,9 @@ Private Sub ClearForm()
     txtExpiryDate.Text = ""
     txtInitialAssignee.Text = ""
     txtInitialAssignee.Enabled = True
-    IMS_Flash lblMessage, "Scan a barcode. The scanner Enter key looks the tag up.", False
+    IMS_Flash lblMessage, "Scan a barcode to begin.", False
+    On Error Resume Next
+    txtBarcode.SetFocus
 End Sub
 
 Private Function DictStr(ByVal d As Object, ByVal key As String) As String

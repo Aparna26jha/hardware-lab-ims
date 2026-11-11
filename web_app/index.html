@@ -116,10 +116,30 @@
     .pill.amd { background: var(--amd-bg); color: var(--amd); }
     .pill.wipro { background: var(--wipro-bg); color: var(--wipro); }
     .filters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
+    .cards { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 4px 0 16px; }
+    .kpi { background: var(--chip); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+    .kpi.amd { background: var(--amd-bg); }
+    .kpi.wipro { background: var(--wipro-bg); }
+    .kpi strong { display: block; font-size: 24px; line-height: 1.1; color: var(--teal-deep); }
+    .kpi span { font-size: 12px; color: var(--muted); }
+    .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .duo.single { grid-template-columns: 1fr; }
+    .box { border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 10px 12px; }
+    .box h3 { font-size: 14px; margin: 0 0 6px; }
+    .box ul { list-style: none; margin: 0; padding: 0; max-height: 150px; overflow: auto; }
+    .box li { padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .box li:last-child { border-bottom: 0; }
+    .tag { display: inline-block; min-width: 92px; font-weight: 700; }
+    .tag.warn { color: var(--warn); }
+    .tag.bad { color: var(--danger); }
+    .details { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 8px 0 18px; }
+    .details dt { color: var(--muted); }
+    .details dd { margin: 0; font-weight: 650; }
     .user-pick { background: #fff; }
     .user-pick[aria-current="true"] { outline: 2px solid var(--teal); }
     @media (max-width: 800px) {
-      .grid, .filters { grid-template-columns: 1fr; }
+      .grid, .filters, .duo { grid-template-columns: 1fr; }
+      .cards { grid-template-columns: repeat(2, 1fr); }
       .span-2 { grid-column: auto; }
       header.app .wrap, .who { text-align: left; display: block; }
     }
@@ -184,6 +204,17 @@
       "approval": "Approved",
       "requestedRole": "User",
       "leadId": "LD200"
+    },
+    {
+      "empId": "EN2301",
+      "name": "Sample Requesting Engineer",
+      "role": "User",
+      "accessCode": "3003",
+      "active": false,
+      "email": "en2301@lab.example",
+      "approval": "Pending",
+      "requestedRole": "User",
+      "leadId": ""
     }
   ],
   "directory": [
@@ -216,6 +247,11 @@
       "alias": "EN2200",
       "email": "en2200@lab.example",
       "name": "Sample New Engineer"
+    },
+    {
+      "alias": "EN2301",
+      "email": "en2301@lab.example",
+      "name": "Sample Requesting Engineer"
     }
   ],
   "assets": [
@@ -282,7 +318,7 @@
       "description": "100GbE adapter held for rework",
       "poNumber": "PO-AMD-23880",
       "arrivalDate": "2026-05-19",
-      "expiryDate": "2029-05-19",
+      "expiryDate": "2026-12-01",
       "assigneeId": "",
       "assigneeName": "",
       "status": "Under Maintenance"
@@ -296,10 +332,10 @@
       "make": "AMD",
       "model": "HDT+",
       "capacityRev": "FW 9.4",
-      "description": "HDT hardware debugger pod",
+      "description": "HDT hardware debugger pod, calibration due",
       "poNumber": "PO-AMD-19002",
       "arrivalDate": "2025-11-03",
-      "expiryDate": "2028-11-03",
+      "expiryDate": "2026-10-31",
       "assigneeId": "",
       "assigneeName": "",
       "status": "Available in Lab"
@@ -606,26 +642,67 @@
       };
     }
 
+    function inScope(db, user, asset) {
+      if (user.role === "User") return asset.assigneeId === user.empId;
+      if (user.role === "Lead Admin") {
+        const assignee = findUser(db, asset.assigneeId);
+        const onTeam = assignee && (assignee.leadId || "") === user.empId;
+        return asset.assigneeId === user.empId || !!onTeam;
+      }
+      return true;
+    }
+
+    function scopedAssets(db, user) {
+      return db.assets.filter((asset) => inScope(db, user, asset));
+    }
+
     function visibleAssets(db, user) {
       const ownership = state.filters.owner;
       const status = state.filters.status;
       const assetType = state.filters.type;
       const search = state.filters.search.toUpperCase();
-      return db.assets.filter((asset) => {
-        if (user.role === "User" && asset.assigneeId !== user.empId) return false;
-        if (user.role === "Lead Admin") {
-          const assignee = findUser(db, asset.assigneeId);
-          const onTeam = assignee && (assignee.leadId || "") === user.empId;
-          if (asset.assigneeId !== user.empId && !onTeam) return false;
-        }
+      return scopedAssets(db, user).filter((asset) => {
         if (ownership && asset.ownership !== ownership) return false;
         if (status && asset.status !== status) return false;
         if (assetType && asset.assetType !== assetType) return false;
         if (!search) return true;
-        const haystack = [asset.barcode, asset.model, liveName(db, asset), asset.assigneeId, asset.poNumber, asset.manufacturer]
-          .join(" ").toUpperCase();
+        const haystack = [asset.barcode, asset.model, liveName(db, asset), asset.assigneeId, asset.poNumber,
+          asset.manufacturer, asset.mfsSerialNo, asset.description].join(" ").toUpperCase();
         return haystack.includes(search);
       }).sort((a, b) => a.barcode.localeCompare(b.barcode));
+    }
+
+    function countAssets(rows) {
+      const counts = { total: rows.length, available: 0, assigned: 0, maintenance: 0, scrapped: 0, amd: 0, wipro: 0 };
+      rows.forEach((asset) => {
+        if (asset.status === "Available in Lab") counts.available += 1;
+        if (asset.status === "Assigned to Engineer") counts.assigned += 1;
+        if (asset.status === "Under Maintenance") counts.maintenance += 1;
+        if (asset.status === "Scrapped/Returned") counts.scrapped += 1;
+        if (asset.ownership === "AMD-Specific") counts.amd += 1;
+        if (asset.ownership === "Wipro-Specific") counts.wipro += 1;
+      });
+      return counts;
+    }
+
+    function expiryRows(rows) {
+      return rows
+        .filter((asset) => asset.status !== "Scrapped/Returned" && expiryNote(asset.expiryDate))
+        .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate));
+    }
+
+    function personText(db, empId) {
+      if (!empId) return "Not assigned";
+      const person = findUser(db, empId);
+      return person ? empId + " " + person.name : empId;
+    }
+
+    function newestFirst(rows) {
+      return rows.slice().sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)) || (b.id || 0) - (a.id || 0));
+    }
+
+    function stamp(raw) {
+      return String(raw || "").replace("T", " ").slice(0, 16);
     }
 
     function valueOf(id) {
@@ -785,7 +862,8 @@
         ["dashboard", "Dashboard"],
         isCustodian(user) ? ["inward", "Inward"] : null,
         isCustodian(user) ? ["transfer", "Transfer"] : null,
-        user.role === "Super Admin" ? ["accounts", "Accounts"] : null
+        user.role === "Super Admin" ? ["accounts", "Accounts"] : null,
+        ["account", "My account"]
       ].filter(Boolean);
       if (!tabs.some(([id]) => id === state.tab)) state.tab = "dashboard";
       const tabButtons = tabs.map(([id, label]) => (
@@ -808,29 +886,31 @@
       if (state.tab === "inward") return inwardHtml();
       if (state.tab === "transfer") return transferHtml();
       if (state.tab === "accounts") return accountsHtml(user);
+      if (state.tab === "account") return myAccountHtml(user);
       return dashboardHtml(user);
     }
 
     function inwardHtml() {
       return `
         <h2>Inward material</h2>
-        <p class="sub">Scan the asset tag. The scanner's Enter key looks it up. A known family prefix fills empty make and model fields.</p>
+        <p class="sub">Scan the barcode and let the scanner press Enter. A known board fills in its details. Fields marked * are required.</p>
         <form id="inward-form">
           <div class="grid">
             <div class="span-2">
-              <label for="inward-barcode">Barcode / asset tag</label>
+              <label for="inward-barcode">Barcode / asset tag *</label>
               <input id="inward-barcode" class="mono" maxlength="64" autocomplete="off" spellcheck="false" required>
             </div>
+            <div class="span-2"><label>Ownership *</label></div>
             <div class="span-2 choices">
               <label><input type="radio" name="ownership" value="AMD-Specific"> AMD-Specific</label>
               <label><input type="radio" name="ownership" value="Wipro-Specific"> Wipro-Specific</label>
             </div>
             <div>
-              <label for="inward-type">Asset type</label>
+              <label for="inward-type">Asset type *</label>
               <select id="inward-type" required>${options(ASSET_TYPES, false, "")}</select>
             </div>
             <div>
-              <label for="inward-po">Purchase order</label>
+              <label for="inward-po">Purchase order *</label>
               <input id="inward-po" maxlength="64" required>
             </div>
             <div>
@@ -854,7 +934,7 @@
               <input id="inward-rev" maxlength="80">
             </div>
             <div>
-              <label for="inward-assignee">Initial assignee employee ID</label>
+              <label for="inward-assignee">Give it to this alias ID now (optional)</label>
               <input id="inward-assignee" maxlength="32" autocomplete="off">
             </div>
             <div>
@@ -881,18 +961,108 @@
     function transferHtml() {
       return `
         <h2>Assign and transfer</h2>
-        <p class="sub">Scan a barcode to load the current assignee. Recording the move updates the asset and appends an audit row.</p>
-        <form id="transfer-form">
-          <label for="transfer-barcode">Asset barcode</label>
-          <input id="transfer-barcode" class="mono" maxlength="64" autocomplete="off" spellcheck="false" required>
-          <p id="transfer-summary" class="sub">Ownership, model, assignee, and status appear here after the scan.</p>
-          <label for="transfer-status">New status</label>
-          <select id="transfer-status">${options(STATUSES, false, "Assigned to Engineer")}</select>
-          <label for="transfer-emp">Target employee ID</label>
-          <input id="transfer-emp" maxlength="32" autocomplete="off">
-          <label for="transfer-notes">Remarks</label>
-          <textarea id="transfer-notes"></textarea>
-          <div class="row"><button class="btn" type="submit">Record transfer</button></div>
+        <p class="sub">Scan the barcode and press Enter. Check who holds it and its history, choose the new status and person, then Record transfer.</p>
+        <div class="duo">
+          <form id="transfer-form">
+            <label for="transfer-barcode">Asset barcode *</label>
+            <input id="transfer-barcode" class="mono" maxlength="64" autocomplete="off" spellcheck="false" required>
+            <p id="transfer-summary" class="sub">Ownership, model, current holder, and status appear here after the scan.</p>
+            <label for="transfer-status">New status *</label>
+            <select id="transfer-status">${options(STATUSES, false, "Assigned to Engineer")}</select>
+            <label for="transfer-emp">Give it to this alias ID (needed for Assigned to Engineer)</label>
+            <input id="transfer-emp" maxlength="32" autocomplete="off">
+            <label for="transfer-notes">Remarks (needed when scrapping or returning)</label>
+            <textarea id="transfer-notes"></textarea>
+            <div class="row"><button class="btn" type="submit">Record transfer</button></div>
+            <p id="form-status" class="status" role="status"></p>
+          </form>
+          <div class="box">
+            <h3>History of this asset</h3>
+            <div id="transfer-history"><p class="sub">Every earlier holder appears here after a scan, newest first.</p></div>
+          </div>
+        </div>`;
+    }
+
+    function historyHtml(db, barcode) {
+      const rows = newestFirst(db.audit.filter((row) => row.barcode === barcode));
+      if (!rows.length) return `<p class="sub">No earlier movements are recorded for ${esc(barcode)}.</p>`;
+      return `<p class="sub">${rows.length} recorded movements for ${esc(barcode)}, newest first.</p>
+        <div style="overflow:auto"><table>
+          <thead><tr><th>When</th><th>From</th><th>To</th><th>By</th><th>Remarks</th></tr></thead>
+          <tbody>${rows.map((row) => `<tr>
+            <td class="mono">${esc(stamp(row.timestamp))}</td>
+            <td>${esc(personText(db, row.previousAssigneeId))}</td>
+            <td>${esc(personText(db, row.newAssigneeId))}</td>
+            <td class="mono">${esc(row.transferredBy)}</td>
+            <td>${esc(row.remarks)}</td></tr>`).join("")}</tbody>
+        </table></div>`;
+    }
+
+    function dashboardHint(user) {
+      if (user.role === "Super Admin") return "Approve waiting requests in Accounts. Inward adds hardware, Transfer hands it out or takes it back. Back up now saves a copy of the data.";
+      if (user.role === "Admin") return "Inward adds new hardware. Transfer hands it out or takes it back. Search finds any barcode, serial, model, PO, or person.";
+      if (user.role === "Lead Admin") return "You see hardware held by you and your team. Search, filter, or export the list. The inventory custodian moves hardware.";
+      return "You see hardware assigned to you. To return or swap a board, contact the inventory custodian.";
+    }
+
+    function summaryHtml(db, user) {
+      const scoped = scopedAssets(db, user);
+      const counts = countAssets(scoped);
+      const card = (value, label, kind) => `<div class="kpi ${kind || ""}"><strong>${value}</strong><span>${esc(label)}</span></div>`;
+      const items = [];
+      if (user.role === "Super Admin") {
+        db.users.filter((account) => account.approval === "Pending").forEach((account) => {
+          items.push(`<li><span class="tag mono">${esc(account.empId)}</span>${esc(account.name)} is waiting for approval (asked for ${esc(account.requestedRole || "User")}). Open Accounts to approve or reject.</li>`);
+        });
+      }
+      expiryRows(scoped).forEach((asset) => {
+        const expired = expiryNote(asset.expiryDate) === " (Expired)";
+        items.push(`<li><span class="tag mono ${expired ? "bad" : "warn"}">${esc(asset.barcode)}</span>${expired ? "Expired" : "Expires"} ${esc(asset.expiryDate)} · ${esc(asset.model)} · ${asset.assigneeId ? "held by " + esc(asset.assigneeId) : "in the lab"}</li>`);
+      });
+      const attention = `<div class="box"><h3>Needs your attention${items.length ? " (" + items.length + ")" : ""}</h3>
+        <ul>${items.length ? items.join("") : "<li>Nothing needs your attention right now.</li>"}</ul></div>`;
+      let activity = "";
+      if (isCustodian(user)) {
+        const recent = newestFirst(db.audit).slice(0, 10);
+        activity = `<div class="box"><h3>Recent activity (last 10 moves)</h3><ul>${recent.length ? recent.map((row) => (
+          `<li><span class="mono">${esc(stamp(row.timestamp))}</span> · <span class="mono">${esc(row.barcode)}</span> · ${esc(personText(db, row.previousAssigneeId))} → ${esc(personText(db, row.newAssigneeId))} · by ${esc(row.transferredBy)}${row.remarks ? " · " + esc(row.remarks) : ""}</li>`
+        )).join("") : "<li>No moves recorded yet.</li>"}</ul></div>`;
+      }
+      return `
+        <div class="cards">
+          ${card(counts.total, counts.scrapped ? "Total assets (" + counts.scrapped + " scrapped)" : "Total assets")}
+          ${card(counts.available, "Available in lab")}
+          ${card(counts.assigned, "Assigned to engineers")}
+          ${card(counts.maintenance, "Under maintenance")}
+          ${card(counts.amd, "AMD-Specific", "amd")}
+          ${card(counts.wipro, "Wipro-Specific", "wipro")}
+        </div>
+        <div class="duo${activity ? "" : " single"}">${attention}${activity}</div>`;
+    }
+
+    function myAccountHtml(user) {
+      const db = loadDb();
+      const lead = user.leadId ? findUser(db, user.leadId) : null;
+      return `
+        <h2>My account</h2>
+        <p class="sub">Check your details. To change your access code, type the current code and the new code twice, then Save.</p>
+        <dl class="details">
+          <dt>Alias ID</dt><dd class="mono">${esc(user.empId)}</dd>
+          <dt>Name</dt><dd>${esc(user.name)}</dd>
+          <dt>Role</dt><dd>${esc(user.role)}</dd>
+          <dt>Mail ID</dt><dd>${esc(user.email || "-")}</dd>
+          <dt>Lead Admin</dt><dd>${lead ? esc(lead.empId + "  " + lead.name) : esc(user.leadId || "-")}</dd>
+        </dl>
+        <p class="sub">A Super Admin changes your role, lead, or mail ID.</p>
+        <form id="code-form" style="max-width:420px">
+          <h2>Change my access code</h2>
+          <label for="code-current">Current access code</label>
+          <input id="code-current" type="password" maxlength="32" autocomplete="off" required>
+          <label for="code-new">New access code (4 to 32 characters)</label>
+          <input id="code-new" type="password" maxlength="32" autocomplete="off" required>
+          <label for="code-confirm">Type the new access code again</label>
+          <input id="code-confirm" type="password" maxlength="32" autocomplete="off" required>
+          <div class="row"><button class="btn" type="submit">Save new code</button></div>
           <p id="form-status" class="status" role="status"></p>
         </form>`;
     }
@@ -906,27 +1076,31 @@
           <td>${ownershipPill(asset.ownership)}</td>
           <td>${esc(asset.assetType)}</td>
           <td>${esc(asset.model)}</td>
+          <td class="mono">${esc(asset.mfsSerialNo)}</td>
           <td class="mono">${esc(asset.poNumber)}</td>
           <td>${esc(asset.status + expiryNote(asset.expiryDate))}</td>
           <td class="mono">${esc(asset.assigneeId)}</td>
           <td>${esc(liveName(db, asset))}</td>
-        </tr>`).join("") : `<tr><td colspan="8">No assets match this view.</td></tr>`;
+        </tr>`).join("") : `<tr><td colspan="9">No assets match this view.</td></tr>`;
       return `
         <h2>${user.role === "User" ? "My assigned hardware" : user.role === "Lead Admin" ? "My team's hardware" : "Lab inventory"}</h2>
+        <p class="sub">${esc(dashboardHint(user))}</p>
+        ${summaryHtml(db, user)}
         <div class="filters">
           <div><label for="filter-owner">Ownership</label><select id="filter-owner">${options(OWNERS, true, state.filters.owner)}</select></div>
           <div><label for="filter-status">Status</label><select id="filter-status">${options(STATUSES, true, state.filters.status)}</select></div>
           <div><label for="filter-type">Asset type</label><select id="filter-type">${options(ASSET_TYPES, true, state.filters.type)}</select></div>
-          <div><label for="filter-search">Search</label><input id="filter-search" placeholder="Barcode, model, PO, assignee" value="${esc(state.filters.search)}"></div>
+          <div><label for="filter-search">Search, then press Enter</label><input id="filter-search" placeholder="Barcode, serial, model, PO, name, description" value="${esc(state.filters.search)}"></div>
         </div>
         <div class="row">
-          <button class="btn secondary" type="button" data-action="refresh">Apply filters</button>
+          <button class="btn secondary" type="button" data-action="refresh">Search</button>
           <button class="btn" type="button" data-action="export-inventory">Export inventory CSV</button>
           ${isCustodian(user) ? '<button class="btn secondary" type="button" data-action="export-audit">Export audit CSV</button>' : ""}
+          ${user.role === "Super Admin" ? '<button class="btn secondary" type="button" data-action="backup-now">Back up now</button>' : ""}
         </div>
-        <p id="form-status" class="status good">${rows.length} assets</p>
+        <p id="form-status" class="status good">${rows.length} assets match this view</p>
         <div style="overflow:auto"><table>
-          <thead><tr><th>Barcode</th><th>Ownership</th><th>Type</th><th>Model</th><th>PO</th><th>Status</th><th>Assignee</th><th>Name</th></tr></thead>
+          <thead><tr><th>Barcode</th><th>Ownership</th><th>Type</th><th>Model</th><th>Serial</th><th>PO</th><th>Status</th><th>Holder</th><th>Holder name</th></tr></thead>
           <tbody>${body}</tbody>
         </table></div>`;
     }
@@ -934,7 +1108,8 @@
     function accountsHtml(user) {
       if (user.role !== "Super Admin") return "<p>Only a Super Admin can manage accounts.</p>";
       const db = loadDb();
-      const cards = db.users.map((account) => `
+      const ordered = db.users.slice().sort((a, b) => (a.approval === "Pending" ? 0 : 1) - (b.approval === "Pending" ? 0 : 1) || a.empId.localeCompare(b.empId));
+      const cards = ordered.map((account) => `
         <button type="button" class="btn secondary user-pick" data-action="select-user" data-id="${esc(account.empId)}" ${state.selectedEmp === account.empId ? 'aria-current="true"' : ""}>
           <span class="mono">${esc(account.empId)}</span> ${esc(account.name)} · ${esc(account.role)} · ${esc(accountState(account))}${account.requestedRole && account.requestedRole !== account.role ? " · asked " + esc(account.requestedRole) : ""}
         </button>`).join("");
@@ -952,7 +1127,7 @@
         </div>` : "<p class='sub'>Select an account.</p>";
       return `
         <h2>Access approval</h2>
-        <p class="sub">A request can ask for any role. The role you save here is the one that takes effect. Link a User to one Lead Admin so that lead can see the team's assets.</p>
+        <p class="sub">Pick a person, choose the real role (and a lead for a User), tick Approve, then Save. Reject closes a request. Waiting requests are listed first.</p>
         <div class="row">${cards}</div>
         ${editor}
         <h2 style="margin-top:22px">Lab directory</h2>
@@ -1218,13 +1393,18 @@
         if (form) form.dataset.revision = asset ? String(asset.revision || 0) : "";
         if (!asset) {
           summary.textContent = "Barcode " + code + " is not in the lab database.";
-          setStatus("Barcode was not found.", "bad");
+          const emptyHistory = document.getElementById("transfer-history");
+          if (emptyHistory) emptyHistory.innerHTML = '<p class="sub">Every earlier holder appears here after a scan, newest first.</p>';
+          setStatus("Barcode was not found. Use Inward to add it.", "bad");
           return;
         }
-        const who = asset.assigneeId ? (asset.assigneeId + " " + liveName(loadDb(), asset)) : "(in lab cage)";
+        const db = loadDb();
+        const who = asset.assigneeId ? (asset.assigneeId + " " + liveName(db, asset)) : "nobody (in the lab)";
         summary.textContent = asset.ownership + " · " + asset.assetType + " · " + (asset.model || "no model")
-          + " · Current assignee: " + who + " · Status: " + asset.status;
-        setStatus("Asset loaded.", "good");
+          + " · Current holder: " + who + " · Status: " + asset.status + expiryNote(asset.expiryDate);
+        const history = document.getElementById("transfer-history");
+        if (history) history.innerHTML = historyHtml(db, code);
+        setStatus("Asset loaded. Choose the new status and record the transfer.", "good");
       },
       saveTransfer() {
         const user = currentUser();
@@ -1315,6 +1495,32 @@
         downloadCsv("LabAudit_" + fileStamp() + ".csv", [header, ...body]);
         paint();
         setStatus("Audit snapshot for the assets on screen downloaded.", "good");
+      },
+      "backup-now"() {
+        const actor = currentUser();
+        if (!actor || actor.role !== "Super Admin") return;
+        captureFilters();
+        const name = "IMS_backup_" + fileStamp() + ".json";
+        downloadText(name, JSON.stringify(loadDb(), null, 2), "application/json");
+        setStatus("Backup saved: " + name + " (in this browser's Downloads folder).", "good");
+      },
+      changeCode() {
+        const user = currentUser();
+        if (!user) return;
+        const current = valueOf("code-current").trim();
+        const next = valueOf("code-new").trim();
+        const confirm = valueOf("code-confirm").trim();
+        if (!current) return setStatus("Enter your current access code.", "bad");
+        if (next.length < 4 || next.length > 32) return setStatus("The new access code must be 4 to 32 characters.", "bad");
+        if (next !== confirm) return setStatus("The new code and the confirmation do not match.", "bad");
+        if (next === current) return setStatus("Choose a new code that differs from the current one.", "bad");
+        const db = loadDb();
+        const me = findUser(db, user.empId);
+        if (!me || me.accessCode !== current) return setStatus("The current access code is not correct.", "bad");
+        me.accessCode = next;
+        saveDb(db);
+        paint();
+        setStatus("Your access code was changed. Use the new code next time you sign in.", "good");
       },
       "select-user"(button) {
         state.selectedEmp = button.dataset.id;
@@ -1428,6 +1634,7 @@
       if (event.target.id === "register-form") actions.register();
       if (event.target.id === "inward-form") actions.saveInward();
       if (event.target.id === "transfer-form") actions.saveTransfer();
+      if (event.target.id === "code-form") actions.changeCode();
     });
 
     document.addEventListener("keydown", (event) => {
@@ -1439,6 +1646,10 @@
       if (event.target.id === "transfer-barcode") {
         event.preventDefault();
         actions.lookupTransfer();
+      }
+      if (event.target.id === "filter-search") {
+        event.preventDefault();
+        actions.refresh();
       }
     });
 

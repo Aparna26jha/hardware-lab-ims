@@ -147,18 +147,58 @@ Private Function QOrNull(ByVal value As String) As String
     End If
 End Function
 
+' Dashboard button for a Super Admin. Returns the backup file path, or "" with gLastError set.
+Public Function IMS_BackupNow() As String
+    gLastError = ""
+    If Not IMS_IsSuperRole(gRole) Then
+        gLastError = "Only a Super Admin can back up the lab database."
+        Exit Function
+    End If
+    On Error GoTo Fail
+    IMS_BackupNow = BackupBackendFile()
+    Exit Function
+Fail:
+    gLastError = "Backup did not finish. " & Err.Description
+End Function
+
+' BackupFolder on the Config sheet, or IMS_Backups beside the database folder.
+Public Function IMS_BackupFolderPath() As String
+    Dim fso As Object
+    Dim dbFolder As String
+    Dim parent As String
+    Dim configured As String
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    configured = Trim$(gBackupPath)
+    If Len(configured) > 0 Then
+        If Right$(configured, 1) = "\" And Len(configured) > 3 Then configured = Left$(configured, Len(configured) - 1)
+        IMS_BackupFolderPath = configured
+        Exit Function
+    End If
+    dbFolder = fso.GetParentFolderName(gBackendPath)
+    parent = fso.GetParentFolderName(dbFolder)
+    If parent = "" Then
+        IMS_BackupFolderPath = fso.BuildPath(dbFolder, "IMS_Backups")
+    Else
+        IMS_BackupFolderPath = fso.BuildPath(parent, "IMS_Backups")
+    End If
+End Function
+
 Private Function BackupBackendFile() As String
     Dim fso As Object
     Dim dest As String
-    Set fso = CreateObject("Scripting.FileSystemObject")
     Dim folder As String
-    If Len(Trim$(gBackupPath)) > 0 Then
-        folder = Trim$(gBackupPath)
-    Else
-        folder = fso.GetParentFolderName(fso.GetParentFolderName(gBackendPath)) & "\IMS_Backups"
+    Dim dbFolder As String
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    folder = IMS_BackupFolderPath()
+    dbFolder = fso.GetParentFolderName(gBackendPath)
+    If StrComp(folder, dbFolder, vbTextCompare) = 0 Then
+        Err.Raise vbObjectError + 30, "IMS", "BackupFolder on the Config sheet must be a different folder from the database."
     End If
-    If Not fso.FolderExists(folder) Then fso.CreateFolder folder
-    dest = folder & "\IMS_Backend_backup_" & Format$(Now, "yyyymmdd_hhnnss") & ".accdb"
+    If Not fso.FileExists(gBackendPath) Then
+        Err.Raise vbObjectError + 31, "IMS", "The database file was not found at " & gBackendPath
+    End If
+    IMS_EnsureFolder folder
+    dest = fso.BuildPath(folder, "IMS_Backend_backup_" & Format$(Now, "yyyymmdd_hhnnss") & ".accdb")
     fso.CopyFile gBackendPath, dest, False
     BackupBackendFile = dest
 End Function

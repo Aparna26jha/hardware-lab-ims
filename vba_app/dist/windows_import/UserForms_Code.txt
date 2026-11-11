@@ -3,22 +3,125 @@ On Windows Excel, import the matching .frm file instead of pasting,
 unless the import is blocked. Import steps are in docs/WINDOWS_EXCEL_SETUP.md.
 
 ==============================================================================
+frmAccount.frm
+VBA editor: File > Import File, and choose this .frm.
+==============================================================================
+Option Explicit
+
+' Controls are created in UserForm_Initialize (see modUi).
+
+Private lblMessage As MSForms.Label
+Private txtCurrent As MSForms.TextBox
+Private txtNew As MSForms.TextBox
+Private txtConfirm As MSForms.TextBox
+Private WithEvents btnSave As MSForms.CommandButton
+Private WithEvents btnClose As MSForms.CommandButton
+
+Private Sub UserForm_Initialize()
+    Dim info As Object
+    Dim heading As Object
+    UiSizeForm Me, "Hardware Lab IMS - My account", 380, 384
+    UiTitle Me, "lblTitle", "My account", 18, 12, 340
+    UiHint Me, "lblHint", "Check your details. To change your access code, type the current code and the new code twice, then Save.", 18, 38, 340, 26
+
+    Set info = IMS_GetMyAccount()
+    If info Is Nothing Then
+        DetailRow "Alias ID", gEmpID, 70
+        DetailRow "Name", gEmpName, 88
+        DetailRow "Role", gRole, 106
+        DetailRow "Mail ID", "", 124
+        DetailRow "Lead Admin", "", 142
+    Else
+        DetailRow "Alias ID", CStr(info("EmpID")), 70
+        DetailRow "Name", CStr(info("EmpName")), 88
+        DetailRow "Role", CStr(info("Role")), 106
+        DetailRow "Mail ID", CStr(info("Email")), 124
+        DetailRow "Lead Admin", CStr(info("Lead")), 142
+    End If
+    UiHint Me, "lblDetailsHint", "A Super Admin changes your role, lead, or mail ID.", 18, 160, 340, 12
+
+    Set heading = UiLabel(Me, "lblCodeHead", "Change my access code", 18, 184, 340, 14)
+    heading.Font.Bold = True
+    UiLabel Me, "lblCurrent", "Current access code", 18, 202, 340, 12
+    Set txtCurrent = UiText(Me, "txtCurrent", 18, 216, 340, 32, True)
+    UiLabel Me, "lblNew", "New access code (4 to 32 characters)", 18, 240, 340, 12
+    Set txtNew = UiText(Me, "txtNew", 18, 254, 340, 32, True)
+    UiLabel Me, "lblConfirm", "Type the new access code again", 18, 278, 340, 12
+    Set txtConfirm = UiText(Me, "txtConfirm", 18, 292, 340, 32, True)
+    Set btnSave = UiButton(Me, "btnSave", "Save new code", 18, 320, 110)
+    btnSave.Default = True
+    Set btnClose = UiButton(Me, "btnClose", "Close", 136, 320, 80)
+    btnClose.Cancel = True
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 18, 346, 340, 26)
+    If info Is Nothing Then IMS_Flash lblMessage, gLastError, True
+End Sub
+
+Private Sub btnSave_Click()
+    If IMS_ChangeAccessCode(txtCurrent.Text, txtNew.Text, txtConfirm.Text) Then
+        txtCurrent.Text = ""
+        txtNew.Text = ""
+        txtConfirm.Text = ""
+        IMS_Flash lblMessage, "Your access code was changed. Use the new code next time you sign in.", False
+    Else
+        IMS_Flash lblMessage, gLastError, True
+    End If
+End Sub
+
+Private Sub btnClose_Click()
+    Unload Me
+End Sub
+
+Private Sub DetailRow(ByVal fieldName As String, ByVal value As String, ByVal topPt As Single)
+    Dim c As Object
+    Set c = UiLabel(Me, "lblK" & CStr(topPt), fieldName, 18, topPt, 90, 14)
+    c.ForeColor = UI_MUTED
+    If value = "" Then value = "-"
+    Set c = UiLabel(Me, "lblV" & CStr(topPt), value, 110, topPt, 248, 14)
+    c.Font.Bold = True
+End Sub
+
+==============================================================================
 frmAuth.frm
 VBA editor: File > Import File, and choose this .frm.
 ==============================================================================
 Option Explicit
 
+' Controls are created in UserForm_Initialize (see modUi).
+
+Private lblMessage As MSForms.Label
+Private txtEmpID As MSForms.TextBox
+Private txtAccessCode As MSForms.TextBox
+Private WithEvents btnLogin As MSForms.CommandButton
+Private WithEvents btnRegister As MSForms.CommandButton
+Private WithEvents btnFillSuper As MSForms.CommandButton
+Private WithEvents btnFillAdmin As MSForms.CommandButton
+Private WithEvents btnFillLead As MSForms.CommandButton
+Private WithEvents btnFillUser As MSForms.CommandButton
+
 Private Sub UserForm_Initialize()
-    Me.Caption = "Hardware Lab IMS - Sign in"
-    lblTitle.Font.Bold = True
-    lblTitle.Font.Size = 16
-    txtAccessCode.PasswordChar = "*"
-    txtEmpID.MaxLength = 32
-    txtAccessCode.MaxLength = 32
+    UiSizeForm Me, "Hardware Lab IMS - Sign in", 360, 300
+    UiTitle Me, "lblTitle", "Hardware Lab IMS", 18, 12, 320
+    UiHint Me, "lblHint", "Type your alias ID and lab access code, then press Enter. New here? Choose Create account.", 18, 38, 320, 26
+    UiLabel Me, "lblEmpID", "Alias ID", 18, 72, 320, 12
+    Set txtEmpID = UiText(Me, "txtEmpID", 18, 86, 320, 32)
+    UiLabel Me, "lblCode", "Lab access code", 18, 112, 320, 12
+    Set txtAccessCode = UiText(Me, "txtAccessCode", 18, 126, 320, 32, True)
+    Set btnLogin = UiButton(Me, "btnLogin", "Sign in", 18, 156, 100)
+    btnLogin.Default = True
+    Set btnRegister = UiButton(Me, "btnRegister", "Create account", 126, 156, 110)
+
+    UiHint Me, "lblDemo", "Sample accounts for the walkthrough:", 18, 190, 320, 12
+    Set btnFillSuper = UiButton(Me, "btnFillSuper", "Super Admin", 18, 204, 76)
+    Set btnFillAdmin = UiButton(Me, "btnFillAdmin", "Custodian", 99, 204, 76)
+    Set btnFillLead = UiButton(Me, "btnFillLead", "Lead", 180, 204, 76)
+    Set btnFillUser = UiButton(Me, "btnFillUser", "Engineer", 261, 204, 77)
+    Me.Controls("lblDemo").Visible = IMS_SHOW_DEMO_FILL
     btnFillSuper.Visible = IMS_SHOW_DEMO_FILL
     btnFillAdmin.Visible = IMS_SHOW_DEMO_FILL
+    btnFillLead.Visible = IMS_SHOW_DEMO_FILL
     btnFillUser.Visible = IMS_SHOW_DEMO_FILL
-    lblMessage.Caption = ""
+
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 18, 232, 320, 36)
 End Sub
 
 Private Sub UserForm_Activate()
@@ -28,7 +131,7 @@ End Sub
 
 Private Sub btnLogin_Click()
     If IMS_TryLogin(txtEmpID.Text, txtAccessCode.Text) Then
-        Me.Hide
+        Unload Me
     Else
         IMS_Flash lblMessage, gLastError, True
     End If
@@ -39,29 +142,29 @@ Private Sub btnRegister_Click()
 End Sub
 
 Private Sub btnFillSuper_Click()
-    txtEmpID.Text = "SA001"
-    txtAccessCode.Text = "1001"
-    lblMessage.Caption = ""
+    FillSample "SA001", "1001"
 End Sub
 
 Private Sub btnFillAdmin_Click()
-    txtEmpID.Text = "AD010"
-    txtAccessCode.Text = "2001"
-    lblMessage.Caption = ""
+    FillSample "AD010", "2001"
+End Sub
+
+Private Sub btnFillLead_Click()
+    FillSample "LD200", "4001"
 End Sub
 
 Private Sub btnFillUser_Click()
-    txtEmpID.Text = "EN1042"
-    txtAccessCode.Text = "3001"
+    FillSample "EN1042", "3001"
+End Sub
+
+Private Sub FillSample(ByVal empId As String, ByVal code As String)
+    txtEmpID.Text = empId
+    txtAccessCode.Text = code
     lblMessage.Caption = ""
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    If CloseMode = vbFormControlMenu Then
-        IMS_SignOut
-        Me.Hide
-        Cancel = True
-    End If
+    If CloseMode = vbFormControlMenu Then IMS_SignOut
 End Sub
 
 ==============================================================================
@@ -70,29 +173,119 @@ VBA editor: File > Import File, and choose this .frm.
 ==============================================================================
 Option Explicit
 
+' Controls are created in UserForm_Initialize (see modUi).
+' The cards and the attention panel use every asset this role may see.
+' The filters and search apply to the asset list only.
+
+Private Const FORM_W As Single = 980
+Private Const RIGHT_EDGE As Single = 958
+
+Private mReady As Boolean
+
+Private lblWho As MSForms.Label
+Private lblHint As MSForms.Label
+Private lblCount As MSForms.Label
+Private lblMessage As MSForms.Label
+Private lblAttnHead As MSForms.Label
+Private lblActHead As MSForms.Label
+Private cardTotal As MSForms.Label
+Private cardAvailable As MSForms.Label
+Private cardAssigned As MSForms.Label
+Private cardMaint As MSForms.Label
+Private cardAMD As MSForms.Label
+Private cardWipro As MSForms.Label
+Private lstAttention As MSForms.ListBox
+Private lstActivity As MSForms.ListBox
+Private lstAssets As MSForms.ListBox
+Private WithEvents cboOwnership As MSForms.ComboBox
+Private WithEvents cboStatus As MSForms.ComboBox
+Private WithEvents cboType As MSForms.ComboBox
+Private WithEvents txtSearch As MSForms.TextBox
+Private WithEvents btnRefresh As MSForms.CommandButton
+Private WithEvents btnInward As MSForms.CommandButton
+Private WithEvents btnTransfer As MSForms.CommandButton
+Private WithEvents btnUsers As MSForms.CommandButton
+Private WithEvents btnAccount As MSForms.CommandButton
+Private WithEvents btnBackup As MSForms.CommandButton
+Private WithEvents btnSignOut As MSForms.CommandButton
+Private WithEvents btnExport As MSForms.CommandButton
+Private WithEvents btnExportAudit As MSForms.CommandButton
+Private WithEvents btnReset As MSForms.CommandButton
+
 Private Sub UserForm_Initialize()
+    Dim widths As Variant
+    Dim cardW As Single
+    Dim isCustodian As Boolean
+    isCustodian = IMS_IsCustodianRole(gRole)
+    UiSizeForm Me, "Hardware Lab IMS", FORM_W, 512
+
+    Set lblWho = UiLabel(Me, "lblWho", WhoText(), 18, 10, 440, 16)
     lblWho.Font.Bold = True
+    lblWho.Font.Size = 11
+    lblWho.ForeColor = UI_TEAL
+    lblWho.WordWrap = False
+    Set btnInward = UiButton(Me, "btnInward", "Inward", 0, 6, 66)
+    Set btnTransfer = UiButton(Me, "btnTransfer", "Transfer", 0, 6, 70)
+    Set btnUsers = UiButton(Me, "btnUsers", "Accounts", 0, 6, 70)
+    Set btnAccount = UiButton(Me, "btnAccount", "My account", 0, 6, 76)
+    Set btnBackup = UiButton(Me, "btnBackup", "Back up now", 0, 6, 84)
+    Set btnSignOut = UiButton(Me, "btnSignOut", "Sign out", 0, 6, 66)
+    btnInward.Visible = isCustodian
+    btnTransfer.Visible = isCustodian
+    btnUsers.Visible = IMS_IsSuperRole(gRole)
+    btnBackup.Visible = IMS_IsSuperRole(gRole)
+    PlaceTopButtons
+    Set lblHint = UiHint(Me, "lblHint", HintText(), 18, 30, RIGHT_EDGE - 18, 12)
+
+    cardW = (RIGHT_EDGE - 18 - 5 * 8) / 6
+    Set cardTotal = UiCard(Me, "cardTotal", "Total assets", UI_CARD, 18, 46, cardW, 42)
+    Set cardAvailable = UiCard(Me, "cardAvailable", "Available in lab", UI_CARD, 18 + 1 * (cardW + 8), 46, cardW, 42)
+    Set cardAssigned = UiCard(Me, "cardAssigned", "Assigned to engineers", UI_CARD, 18 + 2 * (cardW + 8), 46, cardW, 42)
+    Set cardMaint = UiCard(Me, "cardMaint", "Under maintenance", UI_CARD, 18 + 3 * (cardW + 8), 46, cardW, 42)
+    Set cardAMD = UiCard(Me, "cardAMD", "AMD-Specific", UI_AMD, 18 + 4 * (cardW + 8), 46, cardW, 42)
+    Set cardWipro = UiCard(Me, "cardWipro", "Wipro-Specific", UI_WIPRO, 18 + 5 * (cardW + 8), 46, cardW, 42)
+
+    Set lblAttnHead = UiLabel(Me, "lblAttnHead", "Needs your attention", 18, 94, 464, 12)
+    lblAttnHead.Font.Bold = True
+    If isCustodian Then
+        Set lstAttention = UiList(Me, "lstAttention", 18, 108, 464, 74, "104 pt;350 pt")
+        Set lblActHead = UiLabel(Me, "lblActHead", "Recent activity (last 10 moves)", 494, 94, 464, 12)
+        lblActHead.Font.Bold = True
+        Set lstActivity = UiList(Me, "lstActivity", 494, 108, 464, 74, "66 pt;86 pt;92 pt;92 pt;40 pt;80 pt")
+    Else
+        Set lstAttention = UiList(Me, "lstAttention", 18, 108, RIGHT_EDGE - 18, 74, "104 pt;820 pt")
+    End If
+
+    UiLabel Me, "lblOwner", "Ownership", 18, 190, 150, 12
+    Set cboOwnership = UiCombo(Me, "cboOwnership", 18, 202, 150)
+    UiLabel Me, "lblStatusFilter", "Status", 176, 190, 170, 12
+    Set cboStatus = UiCombo(Me, "cboStatus", 176, 202, 170)
+    UiLabel Me, "lblTypeFilter", "Asset type", 354, 190, 150, 12
+    Set cboType = UiCombo(Me, "cboType", 354, 202, 150)
+    UiLabel Me, "lblSearch", "Search barcode, serial, model, PO, name, or description, then press Enter", 512, 190, 360, 12
+    Set txtSearch = UiText(Me, "txtSearch", 512, 202, 360, 64)
+    Set btnRefresh = UiButton(Me, "btnRefresh", "Search", 880, 200, 78)
     IMS_FillCombo cboOwnership, IMS_OwnershipList(), True
     IMS_FillCombo cboStatus, IMS_StatusList(), True
     IMS_FillCombo cboType, IMS_AssetTypeList(), True
-    lstAssets.ColumnCount = 8
-    lstAssets.ColumnWidths = "110 pt;115 pt;100 pt;90 pt;100 pt;130 pt;80 pt;140 pt"
-    btnInward.Visible = IMS_IsCustodianRole(gRole)
-    btnTransfer.Visible = IMS_IsCustodianRole(gRole)
-    btnUsers.Visible = IMS_IsSuperRole(gRole)
+
+    widths = Array(100, 84, 80, 90, 90, 90, 160, 66, 134)
+    UiColumnHeads Me, "lblCol", Array("Barcode", "Ownership", "Type", "Model", "Serial", "PO", "Status", "Holder", "Holder name"), widths, 18, 228
+    Set lstAssets = UiList(Me, "lstAssets", 18, 242, RIGHT_EDGE - 18, 176, UiWidthsText(widths))
+
+    Set lblCount = UiLabel(Me, "lblCount", "0 assets", 18, 426, 300, 14)
+    Set btnExport = UiButton(Me, "btnExport", "Export inventory CSV", 0, 422, 130)
+    Set btnExportAudit = UiButton(Me, "btnExportAudit", "Export audit CSV", 0, 422, 116)
+    Set btnReset = UiButton(Me, "btnReset", "Reset sample data", 0, 422, 116)
+    btnExportAudit.Visible = isCustodian
     btnReset.Visible = IMS_IsSuperRole(gRole)
-    btnExportAudit.Visible = IMS_IsCustodianRole(gRole)
-    If gRole = "User" Then
-        lblWho.Caption = gEmpName & "  (" & gEmpID & ")  Engineer view - your assigned assets only"
-    ElseIf gRole = "Lead Admin" Then
-        lblWho.Caption = gEmpName & "  (" & gEmpID & ")  Lead view - your team's assets only"
-    Else
-        lblWho.Caption = gEmpName & "  (" & gEmpID & ")  " & gRole
-    End If
+    PlaceBottomButtons
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 18, 450, RIGHT_EDGE - 18, 28)
+    mReady = True
 End Sub
 
 Private Sub UserForm_Activate()
-    LoadAssets
+    RefreshAll
 End Sub
 
 Private Sub btnRefresh_Click()
@@ -100,50 +293,70 @@ Private Sub btnRefresh_Click()
 End Sub
 
 Private Sub cboOwnership_Change()
-    LoadAssets
+    If mReady Then LoadAssets
 End Sub
 
 Private Sub cboStatus_Change()
-    LoadAssets
+    If mReady Then LoadAssets
 End Sub
 
 Private Sub cboType_Change()
-    LoadAssets
+    If mReady Then LoadAssets
 End Sub
 
-Private Sub txtSearch_AfterUpdate()
-    LoadAssets
+Private Sub txtSearch_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyReturn Then
+        KeyCode = 0
+        LoadAssets
+    End If
 End Sub
 
 Private Sub btnInward_Click()
     frmInward.Show
+    RefreshAll
 End Sub
 
 Private Sub btnTransfer_Click()
     frmTransfer.Show
+    RefreshAll
 End Sub
 
 Private Sub btnUsers_Click()
     frmUserAdmin.Show
+    RefreshAll
+End Sub
+
+Private Sub btnAccount_Click()
+    frmAccount.Show
+End Sub
+
+Private Sub btnBackup_Click()
+    Dim saved As String
+    saved = IMS_BackupNow()
+    If saved = "" Then
+        IMS_Flash lblMessage, gLastError, True
+    Else
+        IMS_Flash lblMessage, "Backup saved: " & saved, False
+    End If
 End Sub
 
 Private Sub btnSignOut_Click()
     IMS_SignOut
-    Me.Hide
+    Unload Me
 End Sub
 
 Private Sub btnReset_Click()
     IMS_ResetBackend
-    LoadAssets
+    RefreshAll
 End Sub
 
 Private Sub btnExport_Click()
     Dim data As Variant
     Dim path As Variant
+    On Error GoTo Fail
     data = CurrentRows()
     path = IMS_SuggestExportPath("LabInventory")
     If VarType(path) = vbBoolean Then Exit Sub
-    On Error GoTo Fail
     IMS_WriteCsv CStr(path), IMS_AssetHeaders(), data
     IMS_Flash lblMessage, "Inventory snapshot written to " & CStr(path), False
     Exit Sub
@@ -158,8 +371,10 @@ Private Sub btnExportAudit_Click()
     Dim path As Variant
     Dim wanted As Object
     Dim r As Long
+    Dim c As Long
     Dim kept As Long
     Dim i As Long
+    On Error GoTo Fail
     assets = CurrentRows()
     auditRows = IMS_QueryAudit()
     If gLastError <> "" And IsEmpty(auditRows) Then
@@ -188,7 +403,6 @@ Private Sub btnExportAudit_Click()
             For r = 1 To UBound(auditRows, 1)
                 If wanted.Exists(CStr(auditRows(r, 3))) Then
                     i = i + 1
-                    Dim c As Long
                     For c = 1 To 7
                         filtered(i, c) = auditRows(r, c)
                     Next c
@@ -198,7 +412,6 @@ Private Sub btnExportAudit_Click()
     End If
     path = IMS_SuggestExportPath("LabAudit")
     If VarType(path) = vbBoolean Then Exit Sub
-    On Error GoTo Fail
     IMS_WriteCsv CStr(path), IMS_AuditHeaders(), filtered
     IMS_Flash lblMessage, "Audit snapshot for the assets on screen written to " & CStr(path), False
     Exit Sub
@@ -206,41 +419,177 @@ Fail:
     IMS_Flash lblMessage, Err.Description, True
 End Sub
 
-Private Sub LoadAssets()
+Private Sub RefreshAll()
+    LoadSummary
+    LoadAssets
+End Sub
+
+Private Sub LoadSummary()
+    Dim everything As Variant
+    Dim counts As Object
+    On Error GoTo Fail
+    everything = IMS_QueryAssets("", "", "", "", "")
+    Set counts = IMS_CountAssets(everything)
+    cardTotal.Caption = CStr(counts("Total"))
+    If counts("Scrapped") > 0 Then
+        Me.Controls("cardTotalCap").Caption = "Total assets (" & CStr(counts("Scrapped")) & " scrapped)"
+    Else
+        Me.Controls("cardTotalCap").Caption = "Total assets"
+    End If
+    cardAvailable.Caption = CStr(counts("Available"))
+    cardAssigned.Caption = CStr(counts("Assigned"))
+    cardMaint.Caption = CStr(counts("Maintenance"))
+    cardAMD.Caption = CStr(counts("AMD"))
+    cardWipro.Caption = CStr(counts("Wipro"))
+    LoadAttention everything
+    If Not lstActivity Is Nothing Then LoadActivity
+    Exit Sub
+Fail:
+    IMS_Flash lblMessage, "Could not read the summary. " & Err.Description, True
+End Sub
+
+Private Sub LoadAttention(ByVal everything As Variant)
+    Dim pending As Variant
+    Dim expiring As Variant
+    Dim r As Long
+    lstAttention.Clear
+    If IMS_IsSuperRole(gRole) Then
+        pending = IMS_PendingRequests()
+        If IsArray(pending) Then
+            For r = 1 To UBound(pending, 1)
+                AddAttention CStr(pending(r, 1)), CStr(pending(r, 2)) & " is waiting for approval (asked for " & CStr(pending(r, 3)) & "). Open Accounts to approve or reject."
+            Next r
+        End If
+    End If
+    expiring = IMS_ExpiryRows(everything)
+    If IsArray(expiring) Then
+        For r = 1 To UBound(expiring, 1)
+            AddAttention CStr(expiring(r, 1)), CStr(expiring(r, 2)) & "  -  " & CStr(expiring(r, 3)) & "  -  " & CStr(expiring(r, 4))
+        Next r
+    End If
+    If lstAttention.ListCount = 0 Then
+        AddAttention "All clear", "Nothing needs your attention right now."
+        lblAttnHead.Caption = "Needs your attention"
+    Else
+        lblAttnHead.Caption = "Needs your attention (" & CStr(lstAttention.ListCount) & ")"
+    End If
+End Sub
+
+Private Sub AddAttention(ByVal item As String, ByVal detail As String)
+    lstAttention.AddItem item
+    lstAttention.List(lstAttention.ListCount - 1, 1) = detail
+End Sub
+
+Private Sub LoadActivity()
     Dim data As Variant
     Dim r As Long
     Dim c As Long
+    lstActivity.Clear
+    data = IMS_RecentActivity(10)
+    If Not IsArray(data) Then
+        lstActivity.AddItem ""
+        If gLastError <> "" Then
+            lstActivity.List(0, 1) = gLastError
+        Else
+            lstActivity.List(0, 1) = "No moves recorded yet."
+        End If
+        Exit Sub
+    End If
+    For r = 1 To UBound(data, 1)
+        lstActivity.AddItem CStr(data(r, 1))
+        For c = 2 To 6
+            lstActivity.List(lstActivity.ListCount - 1, c - 1) = CStr(data(r, c))
+        Next c
+    Next r
+End Sub
+
+Private Sub LoadAssets()
+    Dim data As Variant
+    Dim r As Long
     On Error GoTo Fail
     data = CurrentRows()
     lstAssets.Clear
-    lstAssets.ColumnCount = 8
     If Not IsArray(data) Then
-        lblCount.Caption = "0 assets"
+        lblCount.Caption = "0 assets match this view"
         Exit Sub
     End If
     For r = 1 To UBound(data, 1)
         lstAssets.AddItem CStr(data(r, 1))
-        For c = 2 To 8
-            lstAssets.List(lstAssets.ListCount - 1, c - 1) = CStr(data(r, c))
-        Next c
+        lstAssets.List(lstAssets.ListCount - 1, 1) = CStr(data(r, 2))
+        lstAssets.List(lstAssets.ListCount - 1, 2) = CStr(data(r, 3))
+        lstAssets.List(lstAssets.ListCount - 1, 3) = CStr(data(r, 4))
+        lstAssets.List(lstAssets.ListCount - 1, 4) = CStr(data(r, 10))
+        lstAssets.List(lstAssets.ListCount - 1, 5) = CStr(data(r, 5))
+        lstAssets.List(lstAssets.ListCount - 1, 6) = CStr(data(r, 6))
+        lstAssets.List(lstAssets.ListCount - 1, 7) = CStr(data(r, 7))
+        lstAssets.List(lstAssets.ListCount - 1, 8) = CStr(data(r, 8))
     Next r
-    lblCount.Caption = CStr(UBound(data, 1)) & " assets"
+    lblCount.Caption = CStr(UBound(data, 1)) & " assets match this view"
     Exit Sub
 Fail:
-    lblCount.Caption = "0 assets"
+    lblCount.Caption = "0 assets match this view"
     IMS_Flash lblMessage, Err.Description, True
 End Sub
 
 Private Function CurrentRows() As Variant
-    CurrentRows = IMS_QueryAssets(cboOwnership.Value, cboStatus.Value, cboType.Value, txtSearch.Text, "")
+    CurrentRows = IMS_QueryAssets(cboOwnership.Text, cboStatus.Text, cboType.Text, txtSearch.Text, "")
 End Function
 
+Private Function WhoText() As String
+    Select Case gRole
+        Case "User": WhoText = gEmpName & "  (" & gEmpID & ")  -  Engineer view: your assigned hardware"
+        Case "Lead Admin": WhoText = gEmpName & "  (" & gEmpID & ")  -  Lead view: your team's hardware"
+        Case "Admin": WhoText = gEmpName & "  (" & gEmpID & ")  -  Inventory custodian"
+        Case Else: WhoText = gEmpName & "  (" & gEmpID & ")  -  " & gRole
+    End Select
+End Function
+
+Private Function HintText() As String
+    Select Case gRole
+        Case "Super Admin"
+            HintText = "Approve waiting requests in Accounts. Inward adds hardware, Transfer hands it out or takes it back. Back up now copies the database to the backup folder."
+        Case "Admin"
+            HintText = "Inward adds new hardware. Transfer hands it out or takes it back. Search finds any barcode, serial, model, PO, or person."
+        Case "Lead Admin"
+            HintText = "You see hardware held by you and your team. Search, filter, or export the list. The inventory custodian moves hardware."
+        Case Else
+            HintText = "You see hardware assigned to you. To return or swap a board, contact the inventory custodian."
+    End Select
+End Function
+
+' Lines up the visible top buttons from the right edge, so hidden ones leave no gap.
+Private Sub PlaceTopButtons()
+    Dim order As Variant
+    Dim i As Long
+    Dim x As Single
+    order = Array(btnSignOut, btnAccount, btnBackup, btnUsers, btnTransfer, btnInward)
+    x = RIGHT_EDGE
+    For i = LBound(order) To UBound(order)
+        If order(i).Visible Then
+            x = x - order(i).Width
+            order(i).Left = x
+            x = x - 6
+        End If
+    Next i
+End Sub
+
+Private Sub PlaceBottomButtons()
+    Dim order As Variant
+    Dim i As Long
+    Dim x As Single
+    order = Array(btnReset, btnExportAudit, btnExport)
+    x = RIGHT_EDGE
+    For i = LBound(order) To UBound(order)
+        If order(i).Visible Then
+            x = x - order(i).Width
+            order(i).Left = x
+            x = x - 6
+        End If
+    Next i
+End Sub
+
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    If CloseMode = vbFormControlMenu Then
-        IMS_SignOut
-        Me.Hide
-        Cancel = True
-    End If
+    If CloseMode = vbFormControlMenu Then IMS_SignOut
 End Sub
 
 ==============================================================================
@@ -249,23 +598,83 @@ VBA editor: File > Import File, and choose this .frm.
 ==============================================================================
 Option Explicit
 
+' Controls are created in UserForm_Initialize (see modUi).
+' No button is the Default button: the scanner sends Enter after each barcode.
+
 Private mExisting As Boolean
+Private mBlocked As Boolean
+
+Private lblMessage As MSForms.Label
+Private WithEvents txtBarcode As MSForms.TextBox
+Private optAMD As MSForms.OptionButton
+Private optWipro As MSForms.OptionButton
+Private cboAssetType As MSForms.ComboBox
+Private txtPONumber As MSForms.TextBox
+Private txtManufacturer As MSForms.TextBox
+Private txtMfsSerialNo As MSForms.TextBox
+Private txtMake As MSForms.TextBox
+Private WithEvents txtModel As MSForms.TextBox
+Private txtCapacityRev As MSForms.TextBox
+Private txtDescription As MSForms.TextBox
+Private txtArrivalDate As MSForms.TextBox
+Private txtExpiryDate As MSForms.TextBox
+Private txtInitialAssignee As MSForms.TextBox
+Private WithEvents btnSave As MSForms.CommandButton
+Private WithEvents btnClear As MSForms.CommandButton
+Private WithEvents btnClose As MSForms.CommandButton
 
 Private Sub UserForm_Initialize()
     If Not IMS_IsCustodianRole(gRole) Then
-        MsgBox "Only inventory custodians can inward hardware.", vbExclamation, IMS_APP_NAME
-        Unload Me
+        mBlocked = True
         Exit Sub
     End If
-    lblTitle.Font.Bold = True
-    lblTitle.Font.Size = 16
+    UiSizeForm Me, "Hardware Lab IMS - Inward", 700, 384
+    UiTitle Me, "lblTitle", "Inward material", 18, 12, 660
+    UiHint Me, "lblHint", "Scan the barcode and let the scanner press Enter. A known board fills in its details. Fields marked * are required.", 18, 38, 660, 26
+
+    UiLabel Me, "lblBarcode", "Barcode / asset tag *", 18, 70, 320, 12
+    Set txtBarcode = UiText(Me, "txtBarcode", 18, 84, 320, 64)
+    UiLabel Me, "lblOwner", "Ownership *", 18, 108, 320, 12
+    Set optAMD = UiOption(Me, "optAMD", "AMD-Specific", "Ownership", 18, 122, 130)
+    Set optWipro = UiOption(Me, "optWipro", "Wipro-Specific", "Ownership", 160, 122, 140)
+    UiLabel Me, "lblAssetType", "Asset type *", 18, 146, 320, 12
+    Set cboAssetType = UiCombo(Me, "cboAssetType", 18, 160, 320)
     IMS_FillCombo cboAssetType, IMS_AssetTypeList(), False
-    txtBarcode.MaxLength = 64
-    txtInitialAssignee.MaxLength = 32
+    UiLabel Me, "lblPO", "Purchase order *", 18, 184, 320, 12
+    Set txtPONumber = UiText(Me, "txtPONumber", 18, 198, 320, 64)
+    UiLabel Me, "lblManufacturer", "Manufacturer", 18, 222, 155, 12
+    Set txtManufacturer = UiText(Me, "txtManufacturer", 18, 236, 155, 120)
+    UiLabel Me, "lblMfs", "Manufacturer serial", 183, 222, 155, 12
+    Set txtMfsSerialNo = UiText(Me, "txtMfsSerialNo", 183, 236, 155, 64)
+    UiLabel Me, "lblMake", "Make", 18, 260, 155, 12
+    Set txtMake = UiText(Me, "txtMake", 18, 274, 155, 80)
+    UiLabel Me, "lblModel", "Model", 183, 260, 155, 12
+    Set txtModel = UiText(Me, "txtModel", 183, 274, 155, 80)
+    UiLabel Me, "lblCapacity", "Capacity / revision", 18, 298, 320, 12
+    Set txtCapacityRev = UiText(Me, "txtCapacityRev", 18, 312, 320, 80)
+
+    UiLabel Me, "lblDescription", "Description", 360, 70, 320, 12
+    Set txtDescription = UiMemo(Me, "txtDescription", 360, 84, 320, 56)
+    UiLabel Me, "lblArrival", "Arrival date (YYYY-MM-DD)", 360, 146, 155, 12
+    Set txtArrivalDate = UiText(Me, "txtArrivalDate", 360, 160, 155, 10)
+    UiLabel Me, "lblExpiry", "Expiry date (YYYY-MM-DD)", 525, 146, 155, 12
+    Set txtExpiryDate = UiText(Me, "txtExpiryDate", 525, 160, 155, 10)
+    UiLabel Me, "lblAssignee", "Give it to this alias ID now (optional)", 360, 184, 320, 12
+    Set txtInitialAssignee = UiText(Me, "txtInitialAssignee", 360, 198, 320, 32)
+    Set btnSave = UiButton(Me, "btnSave", "Save", 360, 230, 90)
+    Set btnClear = UiButton(Me, "btnClear", "Clear", 458, 230, 80)
+    Set btnClose = UiButton(Me, "btnClose", "Close", 546, 230, 80)
+    btnClose.Cancel = True
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 360, 262, 320, 70)
     ClearForm
 End Sub
 
 Private Sub UserForm_Activate()
+    If mBlocked Then
+        MsgBox "Only inventory custodians can inward hardware.", vbExclamation, IMS_APP_NAME
+        Unload Me
+        Exit Sub
+    End If
     On Error Resume Next
     txtBarcode.SetFocus
 End Sub
@@ -277,12 +686,8 @@ Private Sub txtBarcode_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shi
     End If
 End Sub
 
-Private Sub txtModel_AfterUpdate()
-    Dim hint As Object
-    If mExisting Then Exit Sub
-    If Trim$(txtModel.Text) = "" Then Exit Sub
-    Set hint = IMS_SuggestFromModel(txtModel.Text)
-    FillEmpty hint
+Private Sub txtModel_KeyDown(ByVal KeyCode As MSForms.ReturnInteger, ByVal Shift As Integer)
+    If KeyCode = vbKeyReturn Or KeyCode = vbKeyTab Then ApplyModel
 End Sub
 
 Private Sub btnSave_Click()
@@ -290,14 +695,14 @@ Private Sub btnSave_Click()
     Set fields = CollectFields()
     If mExisting Then
         If IMS_UpdateAssetMetadata(fields) Then
-            IMS_Flash lblMessage, "Metadata updated for " & fields("Barcode") & ". Assignee and status were left unchanged.", False
+            IMS_Flash lblMessage, "Details updated for " & fields("Barcode") & ". The holder and status did not change.", False
         Else
             IMS_Flash lblMessage, gLastError, True
         End If
     Else
         If IMS_SaveNewAsset(fields) Then
-            IMS_Flash lblMessage, "Inward saved for " & fields("Barcode") & ".", False
             ClearForm
+            IMS_Flash lblMessage, "Inward saved for " & fields("Barcode") & ". Scan the next barcode.", False
         Else
             IMS_Flash lblMessage, gLastError, True
         End If
@@ -323,11 +728,12 @@ Private Sub ApplyBarcode()
         IMS_Flash lblMessage, "Barcode must be 4 to 64 letters, digits, hyphens, or underscores.", True
         Exit Sub
     End If
+    On Error GoTo Fail
     Set asset = IMS_GetAsset(code)
     If Not asset Is Nothing Then
         mExisting = True
         FillFromAsset asset
-        IMS_Flash lblMessage, "This barcode is already on file. Saving updates metadata only. Use Transfer to change the assignee.", False
+        IMS_Flash lblMessage, "This barcode is already on file. Save updates its details only. Use Transfer to change who holds it.", False
         Exit Sub
     End If
     mExisting = False
@@ -335,15 +741,27 @@ Private Sub ApplyBarcode()
     Set hint = IMS_SuggestFromBarcode(code)
     FillEmpty hint
     If hint.Exists("Model") Then
-        IMS_Flash lblMessage, "New barcode. Empty fields were filled from the latest " & IMS_FamilyPrefix(code) & " asset.", False
+        IMS_Flash lblMessage, "New barcode. Empty fields were filled from the latest " & IMS_FamilyPrefix(code) & " asset. Check them, add the PO, and Save.", False
     Else
-        IMS_Flash lblMessage, "New barcode. Fill the purchase order before saving.", False
+        IMS_Flash lblMessage, "New barcode. Choose AMD or Wipro, the type, and the purchase order, then Save.", False
     End If
+    Exit Sub
+Fail:
+    IMS_Flash lblMessage, "Could not read the lab database. " & Err.Description, True
+End Sub
+
+Private Sub ApplyModel()
+    Dim hint As Object
+    If mExisting Then Exit Sub
+    If Trim$(txtModel.Text) = "" Then Exit Sub
+    On Error Resume Next
+    Set hint = IMS_SuggestFromModel(txtModel.Text)
+    FillEmpty hint
 End Sub
 
 Private Sub FillFromAsset(ByVal asset As Object)
     SetOwnership DictStr(asset, "Ownership")
-    cboAssetType.Value = DictStr(asset, "AssetType")
+    UiPick cboAssetType, DictStr(asset, "AssetType")
     txtPONumber.Text = DictStr(asset, "PONumber")
     txtManufacturer.Text = DictStr(asset, "Manufacturer")
     txtMfsSerialNo.Text = DictStr(asset, "MfsSerialNo")
@@ -359,7 +777,7 @@ End Sub
 
 Private Sub FillEmpty(ByVal hint As Object)
     If hint Is Nothing Then Exit Sub
-    If Len(Trim$(cboAssetType.Value & "")) = 0 And hint.Exists("AssetType") Then cboAssetType.Value = hint("AssetType")
+    If cboAssetType.ListIndex < 0 And hint.Exists("AssetType") Then UiPick cboAssetType, CStr(hint("AssetType"))
     If txtManufacturer.Text = "" And hint.Exists("Manufacturer") Then txtManufacturer.Text = hint("Manufacturer")
     If txtMake.Text = "" And hint.Exists("Make") Then txtMake.Text = hint("Make")
     If txtModel.Text = "" And hint.Exists("Model") Then txtModel.Text = hint("Model")
@@ -378,7 +796,7 @@ Private Function CollectFields() As Object
     Else
         d("Ownership") = ""
     End If
-    d("AssetType") = cboAssetType.Value
+    d("AssetType") = cboAssetType.Text
     d("PONumber") = txtPONumber.Text
     d("Manufacturer") = txtManufacturer.Text
     d("MfsSerialNo") = txtMfsSerialNo.Text
@@ -414,7 +832,9 @@ Private Sub ClearForm()
     txtExpiryDate.Text = ""
     txtInitialAssignee.Text = ""
     txtInitialAssignee.Enabled = True
-    IMS_Flash lblMessage, "Scan a barcode. The scanner Enter key looks the tag up.", False
+    IMS_Flash lblMessage, "Scan a barcode to begin.", False
+    On Error Resume Next
+    txtBarcode.SetFocus
 End Sub
 
 Private Function DictStr(ByVal d As Object, ByVal key As String) As String
@@ -434,22 +854,50 @@ VBA editor: File > Import File, and choose this .frm.
 ==============================================================================
 Option Explicit
 
+' Controls are created in UserForm_Initialize (see modUi).
+
+Private lblMessage As MSForms.Label
+Private txtEmpID As MSForms.TextBox
+Private txtEmpName As MSForms.TextBox
+Private txtEmail As MSForms.TextBox
+Private cboRequest As MSForms.ComboBox
+Private txtAccessCode As MSForms.TextBox
+Private txtConfirm As MSForms.TextBox
+Private WithEvents btnCreate As MSForms.CommandButton
+Private WithEvents btnBack As MSForms.CommandButton
+
 Private Sub UserForm_Initialize()
-    lblTitle.Font.Bold = True
-    lblTitle.Font.Size = 16
-    txtEmpID.MaxLength = 32
-    txtEmpName.MaxLength = 120
-    txtAccessCode.MaxLength = 32
-    txtConfirm.MaxLength = 32
-    txtAccessCode.PasswordChar = "*"
-    txtConfirm.PasswordChar = "*"
-    txtEmail.MaxLength = 120
+    UiSizeForm Me, "Hardware Lab IMS - Request access", 360, 420
+    UiTitle Me, "lblTitle", "Request access", 18, 12, 320
+    UiHint Me, "lblHint", "Your alias, mail ID and full name must match the lab directory. You can sign in after a Super Admin approves the request.", 18, 38, 320, 38
+    UiLabel Me, "lblEmpID", "Alias ID", 18, 80, 320, 12
+    Set txtEmpID = UiText(Me, "txtEmpID", 18, 94, 320, 32)
+    UiLabel Me, "lblEmpName", "Full name", 18, 118, 320, 12
+    Set txtEmpName = UiText(Me, "txtEmpName", 18, 132, 320, 120)
+    UiLabel Me, "lblEmail", "Mail ID", 18, 156, 320, 12
+    Set txtEmail = UiText(Me, "txtEmail", 18, 170, 320, 120)
+    UiLabel Me, "lblRequest", "Requested role (a Super Admin decides the real role)", 18, 194, 320, 12
+    Set cboRequest = UiCombo(Me, "cboRequest", 18, 208, 320)
     IMS_FillCombo cboRequest, IMS_RoleList(), False
-    cboRequest.Value = "User"
+    UiPick cboRequest, "User"
+    UiLabel Me, "lblCode", "Choose a lab access code (4 to 32 characters)", 18, 232, 320, 12
+    Set txtAccessCode = UiText(Me, "txtAccessCode", 18, 246, 320, 32, True)
+    UiLabel Me, "lblConfirm", "Type the access code again", 18, 270, 320, 12
+    Set txtConfirm = UiText(Me, "txtConfirm", 18, 284, 320, 32, True)
+    Set btnCreate = UiButton(Me, "btnCreate", "Request access", 18, 314, 110)
+    btnCreate.Default = True
+    Set btnBack = UiButton(Me, "btnBack", "Back to sign in", 136, 314, 110)
+    btnBack.Cancel = True
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 18, 344, 320, 40)
+End Sub
+
+Private Sub UserForm_Activate()
+    On Error Resume Next
+    txtEmpID.SetFocus
 End Sub
 
 Private Sub btnCreate_Click()
-    If IMS_RegisterUser(txtEmpID.Text, txtEmpName.Text, txtEmail.Text, cboRequest.Value, txtAccessCode.Text, txtConfirm.Text) Then
+    If IMS_RegisterUser(txtEmpID.Text, txtEmpName.Text, txtEmail.Text, cboRequest.Text, txtAccessCode.Text, txtConfirm.Text) Then
         MsgBox "Request sent for " & UCase$(Trim$(txtEmpID.Text)) & "." & vbCrLf & "A Super Admin must approve it before sign-in.", vbInformation, IMS_APP_NAME
         Unload Me
     Else
@@ -467,24 +915,73 @@ VBA editor: File > Import File, and choose this .frm.
 ==============================================================================
 Option Explicit
 
+' Controls are created in UserForm_Initialize (see modUi).
+' No button is the Default button: the scanner sends Enter after each barcode.
+
 Private mLoaded As Boolean
+Private mBlocked As Boolean
+
+Private lblMessage As MSForms.Label
+Private lblOwnership As MSForms.Label
+Private lblType As MSForms.Label
+Private lblCurrent As MSForms.Label
+Private lblState As MSForms.Label
+Private lblHistoryNote As MSForms.Label
+Private lstHistory As MSForms.ListBox
+Private WithEvents txtBarcode As MSForms.TextBox
+Private cboStatus As MSForms.ComboBox
+Private txtNewEmpID As MSForms.TextBox
+Private txtRemarks As MSForms.TextBox
+Private WithEvents btnTransfer As MSForms.CommandButton
+Private WithEvents btnClose As MSForms.CommandButton
 
 Private Sub UserForm_Initialize()
+    Dim widths As Variant
     If Not IMS_IsCustodianRole(gRole) Then
-        MsgBox "Only inventory custodians can transfer hardware.", vbExclamation, IMS_APP_NAME
-        Unload Me
+        mBlocked = True
         Exit Sub
     End If
-    lblTitle.Font.Bold = True
-    lblTitle.Font.Size = 16
+    UiSizeForm Me, "Hardware Lab IMS - Transfer", 790, 400
+    UiTitle Me, "lblTitle", "Assign and transfer", 18, 12, 740
+    UiHint Me, "lblHint", "Scan the barcode and press Enter. Check who holds it and its history, choose the new status and person, then Record transfer.", 18, 38, 740, 26
+
+    UiLabel Me, "lblBarcode", "Asset barcode *", 18, 70, 320, 12
+    Set txtBarcode = UiText(Me, "txtBarcode", 18, 84, 320, 64)
+    Set lblOwnership = UiLabel(Me, "lblOwnership", "Ownership:", 18, 110, 320, 14)
+    Set lblType = UiLabel(Me, "lblType", "Type / model:", 18, 126, 320, 14)
+    Set lblCurrent = UiLabel(Me, "lblCurrent", "Current holder:", 18, 142, 320, 14)
+    Set lblState = UiLabel(Me, "lblState", "Status:", 18, 158, 320, 14)
+    lblCurrent.Font.Bold = True
+
+    UiLabel Me, "lblStatus", "New status *", 18, 182, 320, 12
+    Set cboStatus = UiCombo(Me, "cboStatus", 18, 196, 320)
     IMS_FillCombo cboStatus, IMS_StatusList(), False
-    cboStatus.Value = "Assigned to Engineer"
-    txtBarcode.MaxLength = 64
-    txtNewEmpID.MaxLength = 32
+    UiPick cboStatus, "Assigned to Engineer"
+    UiLabel Me, "lblNewEmp", "Give it to this alias ID (needed for Assigned to Engineer)", 18, 220, 320, 12
+    Set txtNewEmpID = UiText(Me, "txtNewEmpID", 18, 234, 320, 32)
+    UiLabel Me, "lblRemarks", "Remarks (needed when scrapping or returning)", 18, 258, 320, 12
+    Set txtRemarks = UiMemo(Me, "txtRemarks", 18, 272, 320, 36)
+    Set btnTransfer = UiButton(Me, "btnTransfer", "Record transfer", 18, 314, 110)
+    Set btnClose = UiButton(Me, "btnClose", "Close", 136, 314, 80)
+    btnClose.Cancel = True
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 18, 342, 320, 30)
+
+    Dim heading As Object
+    Set heading = UiLabel(Me, "lblHistory", "History of this asset", 360, 70, 400, 12)
+    heading.Font.Bold = True
+    Set lblHistoryNote = UiHint(Me, "lblHistoryNote", "Every earlier holder appears here after a scan, newest first.", 360, 84, 400, 12)
+    widths = Array(74, 0, 100, 100, 44, 82)
+    UiColumnHeads Me, "lblHistCol", Array("When", "", "From", "To", "By", "Remarks"), widths, 360, 100
+    Set lstHistory = UiList(Me, "lstHistory", 360, 114, 400, 228, UiWidthsText(widths))
     ClearView
 End Sub
 
 Private Sub UserForm_Activate()
+    If mBlocked Then
+        MsgBox "Only inventory custodians can transfer hardware.", vbExclamation, IMS_APP_NAME
+        Unload Me
+        Exit Sub
+    End If
     On Error Resume Next
     txtBarcode.SetFocus
 End Sub
@@ -501,11 +998,11 @@ Private Sub btnTransfer_Click()
         IMS_Flash lblMessage, "Scan a barcode first.", True
         Exit Sub
     End If
-    If IMS_TransferAsset(txtBarcode.Text, txtNewEmpID.Text, txtRemarks.Text, cboStatus.Value) Then
-        IMS_Flash lblMessage, "Transfer recorded for " & IMS_NormalizeBarcode(txtBarcode.Text) & ".", False
+    If IMS_TransferAsset(txtBarcode.Text, txtNewEmpID.Text, txtRemarks.Text, cboStatus.Text) Then
         LoadAsset
         txtNewEmpID.Text = ""
         txtRemarks.Text = ""
+        IMS_Flash lblMessage, "Transfer recorded for " & IMS_NormalizeBarcode(txtBarcode.Text) & ".", False
     Else
         IMS_Flash lblMessage, gLastError, True
     End If
@@ -520,35 +1017,62 @@ Private Sub LoadAsset()
     Dim code As String
     code = IMS_NormalizeBarcode(txtBarcode.Text)
     txtBarcode.Text = code
+    If code = "" Then Exit Sub
+    On Error GoTo Fail
     Set asset = IMS_GetAsset(code)
     If asset Is Nothing Then
-        mLoaded = False
-        lblOwnership.Caption = "Ownership:"
-        lblType.Caption = "Type / model:"
-        lblCurrent.Caption = "Current assignee:"
-        lblState.Caption = "Status:"
-        IMS_Flash lblMessage, "Barcode " & code & " is not in the lab database.", True
+        ClearView
+        IMS_Flash lblMessage, "Barcode " & code & " is not in the lab database. Use Inward to add it.", True
         Exit Sub
     End If
     mLoaded = True
     lblOwnership.Caption = "Ownership: " & DictStr(asset, "Ownership")
     lblType.Caption = "Type / model: " & DictStr(asset, "AssetType") & "  " & DictStr(asset, "Model")
     If DictStr(asset, "CurrentAssigneeID") = "" Then
-        lblCurrent.Caption = "Current assignee: (in lab cage)"
+        lblCurrent.Caption = "Current holder: nobody (in the lab)"
     Else
-        lblCurrent.Caption = "Current assignee: " & DictStr(asset, "CurrentAssigneeID") & "  " & DictStr(asset, "CurrentAssigneeName")
+        lblCurrent.Caption = "Current holder: " & DictStr(asset, "CurrentAssigneeID") & "  " & DictStr(asset, "CurrentAssigneeName")
     End If
-    lblState.Caption = "Status: " & DictStr(asset, "Status")
+    lblState.Caption = "Status: " & DictStr(asset, "Status") & IMS_ExpiryNote(DictStr(asset, "ExpiryDate"))
+    LoadHistory code
     IMS_Flash lblMessage, "Asset loaded. Choose the new status and record the transfer.", False
+    Exit Sub
+Fail:
+    IMS_Flash lblMessage, "Could not read the lab database. " & Err.Description, True
+End Sub
+
+Private Sub LoadHistory(ByVal code As String)
+    Dim data As Variant
+    Dim r As Long
+    Dim c As Long
+    lstHistory.Clear
+    data = IMS_AssetHistory(code)
+    If Not IsArray(data) Then
+        If gLastError <> "" Then
+            lblHistoryNote.Caption = gLastError
+        Else
+            lblHistoryNote.Caption = "No earlier movements are recorded for " & code & "."
+        End If
+        Exit Sub
+    End If
+    For r = 1 To UBound(data, 1)
+        lstHistory.AddItem CStr(data(r, 1))
+        For c = 2 To 6
+            lstHistory.List(lstHistory.ListCount - 1, c - 1) = CStr(data(r, c))
+        Next c
+    Next r
+    lblHistoryNote.Caption = CStr(UBound(data, 1)) & " recorded movements for " & code & ", newest first."
 End Sub
 
 Private Sub ClearView()
     mLoaded = False
     lblOwnership.Caption = "Ownership:"
     lblType.Caption = "Type / model:"
-    lblCurrent.Caption = "Current assignee:"
+    lblCurrent.Caption = "Current holder:"
     lblState.Caption = "Status:"
-    IMS_Flash lblMessage, "Scan a barcode. Enter loads the current assignee.", False
+    lstHistory.Clear
+    lblHistoryNote.Caption = "Every earlier holder appears here after a scan, newest first."
+    IMS_Flash lblMessage, "Scan a barcode to begin.", False
 End Sub
 
 Private Function DictStr(ByVal d As Object, ByVal key As String) As String
@@ -564,29 +1088,84 @@ VBA editor: File > Import File, and choose this .frm.
 ==============================================================================
 Option Explicit
 
+' Controls are created in UserForm_Initialize (see modUi).
+
+Private mBlocked As Boolean
+
+Private lblMessage As MSForms.Label
+Private lblSelected As MSForms.Label
+Private WithEvents lstUsers As MSForms.ListBox
+Private cboRole As MSForms.ComboBox
+Private cboLead As MSForms.ComboBox
+Private chkActive As MSForms.CheckBox
+Private txtAlias As MSForms.TextBox
+Private txtEmail As MSForms.TextBox
+Private txtName As MSForms.TextBox
+Private WithEvents btnApply As MSForms.CommandButton
+Private WithEvents btnReject As MSForms.CommandButton
+Private WithEvents btnAllow As MSForms.CommandButton
+Private WithEvents btnClose As MSForms.CommandButton
+
 Private Sub UserForm_Initialize()
+    Dim widths As Variant
+    Dim heading As Object
     If Not IMS_IsSuperRole(gRole) Then
-        MsgBox "Only a Super Admin can manage accounts.", vbExclamation, IMS_APP_NAME
-        Unload Me
+        mBlocked = True
         Exit Sub
     End If
-    lblTitle.Font.Bold = True
-    lblTitle.Font.Size = 16
+    UiSizeForm Me, "Hardware Lab IMS - Accounts", 640, 480
+    UiTitle Me, "lblTitle", "Accounts and access requests", 18, 12, 600
+    UiHint Me, "lblHint", "Pick a person, choose the real role (and a lead for a User), tick Approve, then Save. Reject closes a request.", 18, 38, 600, 26
+
+    widths = Array(80, 170, 90, 70, 70, 100)
+    UiColumnHeads Me, "lblCol", Array("Alias", "Name", "Role", "Status", "Lead", "Requested"), widths, 18, 70
+    Set lstUsers = UiList(Me, "lstUsers", 18, 84, 600, 170, UiWidthsText(widths))
+    Set lblSelected = UiLabel(Me, "lblSelected", "Select an account in the list.", 18, 260, 600, 14)
+    lblSelected.Font.Bold = True
+
+    UiLabel Me, "lblRole", "Real role", 18, 278, 150, 12
+    Set cboRole = UiCombo(Me, "cboRole", 18, 292, 150)
     IMS_FillCombo cboRole, IMS_RoleList(), False
-    lstUsers.ColumnCount = 6
-    lstUsers.ColumnWidths = "90 pt;180 pt;110 pt;70 pt;0 pt;110 pt"
-    txtAlias.MaxLength = 32
-    txtEmail.MaxLength = 120
-    txtName.MaxLength = 120
+    UiLabel Me, "lblLead", "Lead Admin (Users only)", 176, 278, 150, 12
+    Set cboLead = UiCombo(Me, "cboLead", 176, 292, 150)
+    Set chkActive = UiCheck(Me, "chkActive", "Approve / Active", 334, 292, 120)
+    Set btnApply = UiButton(Me, "btnApply", "Save", 460, 290, 76)
+    Set btnReject = UiButton(Me, "btnReject", "Reject", 542, 290, 76)
+
+    Set heading = UiLabel(Me, "lblDirHead", "Lab directory", 18, 326, 600, 14)
+    heading.Font.Bold = True
+    UiHint Me, "lblDirHint", "A person must be on this list before they can request access. Their alias, mail ID and full name must match.", 18, 340, 600, 12
+    UiLabel Me, "lblAlias", "Alias ID", 18, 356, 110, 12
+    Set txtAlias = UiText(Me, "txtAlias", 18, 370, 110, 32)
+    UiLabel Me, "lblEmail", "Mail ID", 134, 356, 190, 12
+    Set txtEmail = UiText(Me, "txtEmail", 134, 370, 190, 120)
+    UiLabel Me, "lblName", "Full name", 330, 356, 170, 12
+    Set txtName = UiText(Me, "txtName", 330, 370, 170, 120)
+    Set btnAllow = UiButton(Me, "btnAllow", "Add to directory", 506, 368, 112)
+
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 18, 402, 520, 36)
+    Set btnClose = UiButton(Me, "btnClose", "Close", 542, 404, 76)
+    btnClose.Cancel = True
     LoadUsers
 End Sub
 
+Private Sub UserForm_Activate()
+    If mBlocked Then
+        MsgBox "Only a Super Admin can manage accounts.", vbExclamation, IMS_APP_NAME
+        Unload Me
+    End If
+End Sub
+
 Private Sub lstUsers_Click()
+    Dim statusText As String
     If lstUsers.ListIndex < 0 Then Exit Sub
-    lblSelected.Caption = CStr(lstUsers.List(lstUsers.ListIndex, 0)) & "  " & CStr(lstUsers.List(lstUsers.ListIndex, 1)) & "  requested " & CStr(lstUsers.List(lstUsers.ListIndex, 5))
-    cboRole.Value = CStr(lstUsers.List(lstUsers.ListIndex, 2))
-    chkActive.Value = (CStr(lstUsers.List(lstUsers.ListIndex, 3)) = "Yes" Or CStr(lstUsers.List(lstUsers.ListIndex, 3)) = "Pending")
-    cboLead.Value = CStr(lstUsers.List(lstUsers.ListIndex, 4))
+    statusText = CStr(lstUsers.List(lstUsers.ListIndex, 3))
+    lblSelected.Caption = CStr(lstUsers.List(lstUsers.ListIndex, 0)) & "  " & CStr(lstUsers.List(lstUsers.ListIndex, 1)) & _
+        "  -  " & statusText & ", asked for " & CStr(lstUsers.List(lstUsers.ListIndex, 5))
+    UiPick cboRole, CStr(lstUsers.List(lstUsers.ListIndex, 2))
+    chkActive.Value = (statusText = "Active" Or statusText = "Pending")
+    UiPick cboLead, CStr(lstUsers.List(lstUsers.ListIndex, 4))
+    If cboLead.ListIndex < 0 Then cboLead.ListIndex = 0
 End Sub
 
 Private Sub btnApply_Click()
@@ -596,9 +1175,9 @@ Private Sub btnApply_Click()
         Exit Sub
     End If
     empId = CStr(lstUsers.List(lstUsers.ListIndex, 0))
-    If IMS_SetUserRole(empId, cboRole.Value, CBool(chkActive.Value), cboLead.Value) Then
-        IMS_Flash lblMessage, "Saved " & empId & ".", False
+    If IMS_SetUserRole(empId, cboRole.Text, CBool(chkActive.Value), cboLead.Text) Then
         LoadUsers
+        IMS_Flash lblMessage, "Saved " & empId & ".", False
     Else
         IMS_Flash lblMessage, gLastError, True
     End If
@@ -612,8 +1191,8 @@ Private Sub btnReject_Click()
     End If
     empId = CStr(lstUsers.List(lstUsers.ListIndex, 0))
     If IMS_RejectUser(empId) Then
-        IMS_Flash lblMessage, "Rejected " & empId & ".", False
         LoadUsers
+        IMS_Flash lblMessage, "Rejected " & empId & ".", False
     Else
         IMS_Flash lblMessage, gLastError, True
     End If
@@ -621,7 +1200,7 @@ End Sub
 
 Private Sub btnAllow_Click()
     If IMS_AddAllowedPerson(txtAlias.Text, txtEmail.Text, txtName.Text) Then
-        IMS_Flash lblMessage, "Directory updated for " & UCase$(Trim$(txtAlias.Text)) & ".", False
+        IMS_Flash lblMessage, "Directory updated for " & UCase$(Trim$(txtAlias.Text)) & ". That person can now request access.", False
         txtAlias.Text = ""
         txtEmail.Text = ""
         txtName.Text = ""
@@ -640,16 +1219,19 @@ Private Sub LoadUsers()
     Dim c As Long
     data = IMS_ListUsers()
     lstUsers.Clear
-    lstUsers.ColumnCount = 6
     cboLead.Clear
     cboLead.AddItem ""
-    If Not IsArray(data) Then Exit Sub
+    lblSelected.Caption = "Select an account in the list."
+    If Not IsArray(data) Then
+        If gLastError <> "" Then IMS_Flash lblMessage, gLastError, True
+        Exit Sub
+    End If
     For r = 1 To UBound(data, 1)
         lstUsers.AddItem CStr(data(r, 1))
         For c = 2 To 6
             lstUsers.List(lstUsers.ListCount - 1, c - 1) = CStr(data(r, c))
         Next c
-        If CStr(data(r, 3)) = "Lead Admin" And CStr(data(r, 4)) = "Yes" Then
+        If CStr(data(r, 3)) = "Lead Admin" And CStr(data(r, 4)) = "Active" Then
             cboLead.AddItem CStr(data(r, 1))
         End If
     Next r

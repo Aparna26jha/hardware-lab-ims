@@ -6,101 +6,6 @@ Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} frmAuth
    ClientTop       =   465
    ClientWidth     =   6840
    StartUpPosition =   1  'CenterOwner
-   Begin MSForms.Label lblTitle
-      Caption         =   "Hardware Lab IMS"
-      Height          =   360
-      Left            =   300
-      TabIndex        =   0
-      Top             =   240
-      Width           =   6240
-   End
-   Begin MSForms.Label lblHint
-      Caption         =   "Use your alias ID and lab access code. A new request stays closed until a Super Admin approves it."
-      Height          =   480
-      Left            =   300
-      TabIndex        =   1
-      Top             =   660
-      Width           =   6240
-   End
-   Begin MSForms.Label lblEmpID
-      Caption         =   "Alias ID"
-      Height          =   240
-      Left            =   300
-      TabIndex        =   2
-      Top             =   1260
-      Width           =   6240
-   End
-   Begin MSForms.TextBox txtEmpID
-      Height          =   360
-      Left            =   300
-      TabIndex        =   3
-      Top             =   1500
-      Width           =   6240
-   End
-   Begin MSForms.Label lblCode
-      Caption         =   "Lab access code"
-      Height          =   240
-      Left            =   300
-      TabIndex        =   4
-      Top             =   2040
-      Width           =   6240
-   End
-   Begin MSForms.TextBox txtAccessCode
-      Height          =   360
-      Left            =   300
-      TabIndex        =   5
-      Top             =   2280
-      Width           =   6240
-   End
-   Begin MSForms.CommandButton btnLogin
-      Caption         =   "Sign in"
-      Default         =   -1
-      Height          =   420
-      Left            =   300
-      TabIndex        =   6
-      Top             =   2820
-      Width           =   1800
-   End
-   Begin MSForms.CommandButton btnRegister
-      Caption         =   "Create account"
-      Height          =   420
-      Left            =   2280
-      TabIndex        =   7
-      Top             =   2820
-      Width           =   2100
-   End
-   Begin MSForms.CommandButton btnFillSuper
-      Caption         =   "Sample Super Admin"
-      Height          =   360
-      Left            =   300
-      TabIndex        =   8
-      Top             =   3420
-      Width           =   1980
-   End
-   Begin MSForms.CommandButton btnFillAdmin
-      Caption         =   "Sample Custodian"
-      Height          =   360
-      Left            =   2400
-      TabIndex        =   9
-      Top             =   3420
-      Width           =   1980
-   End
-   Begin MSForms.CommandButton btnFillUser
-      Caption         =   "Sample Engineer"
-      Height          =   360
-      Left            =   4500
-      TabIndex        =   10
-      Top             =   3420
-      Width           =   1980
-   End
-   Begin MSForms.Label lblMessage
-      Caption         =   ""
-      Height          =   900
-      Left            =   300
-      TabIndex        =   11
-      Top             =   4020
-      Width           =   6240
-   End
 End
 Attribute VB_Name = "frmAuth"
 Attribute VB_GlobalNameSpace = False
@@ -109,17 +14,42 @@ Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
 
+' Controls are created in UserForm_Initialize (see modUi).
+
+Private lblMessage As MSForms.Label
+Private txtEmpID As MSForms.TextBox
+Private txtAccessCode As MSForms.TextBox
+Private WithEvents btnLogin As MSForms.CommandButton
+Private WithEvents btnRegister As MSForms.CommandButton
+Private WithEvents btnFillSuper As MSForms.CommandButton
+Private WithEvents btnFillAdmin As MSForms.CommandButton
+Private WithEvents btnFillLead As MSForms.CommandButton
+Private WithEvents btnFillUser As MSForms.CommandButton
+
 Private Sub UserForm_Initialize()
-    Me.Caption = "Hardware Lab IMS - Sign in"
-    lblTitle.Font.Bold = True
-    lblTitle.Font.Size = 16
-    txtAccessCode.PasswordChar = "*"
-    txtEmpID.MaxLength = 32
-    txtAccessCode.MaxLength = 32
+    UiSizeForm Me, "Hardware Lab IMS - Sign in", 360, 300
+    UiTitle Me, "lblTitle", "Hardware Lab IMS", 18, 12, 320
+    UiHint Me, "lblHint", "Type your alias ID and lab access code, then press Enter. New here? Choose Create account.", 18, 38, 320, 26
+    UiLabel Me, "lblEmpID", "Alias ID", 18, 72, 320, 12
+    Set txtEmpID = UiText(Me, "txtEmpID", 18, 86, 320, 32)
+    UiLabel Me, "lblCode", "Lab access code", 18, 112, 320, 12
+    Set txtAccessCode = UiText(Me, "txtAccessCode", 18, 126, 320, 32, True)
+    Set btnLogin = UiButton(Me, "btnLogin", "Sign in", 18, 156, 100)
+    btnLogin.Default = True
+    Set btnRegister = UiButton(Me, "btnRegister", "Create account", 126, 156, 110)
+
+    UiHint Me, "lblDemo", "Sample accounts for the walkthrough:", 18, 190, 320, 12
+    Set btnFillSuper = UiButton(Me, "btnFillSuper", "Super Admin", 18, 204, 76)
+    Set btnFillAdmin = UiButton(Me, "btnFillAdmin", "Custodian", 99, 204, 76)
+    Set btnFillLead = UiButton(Me, "btnFillLead", "Lead", 180, 204, 76)
+    Set btnFillUser = UiButton(Me, "btnFillUser", "Engineer", 261, 204, 77)
+    Me.Controls("lblDemo").Visible = IMS_SHOW_DEMO_FILL
     btnFillSuper.Visible = IMS_SHOW_DEMO_FILL
     btnFillAdmin.Visible = IMS_SHOW_DEMO_FILL
+    btnFillLead.Visible = IMS_SHOW_DEMO_FILL
     btnFillUser.Visible = IMS_SHOW_DEMO_FILL
-    lblMessage.Caption = ""
+
+    Set lblMessage = UiLabel(Me, "lblMessage", "", 18, 232, 320, 36)
 End Sub
 
 Private Sub UserForm_Activate()
@@ -129,7 +59,7 @@ End Sub
 
 Private Sub btnLogin_Click()
     If IMS_TryLogin(txtEmpID.Text, txtAccessCode.Text) Then
-        Me.Hide
+        Unload Me
     Else
         IMS_Flash lblMessage, gLastError, True
     End If
@@ -140,27 +70,27 @@ Private Sub btnRegister_Click()
 End Sub
 
 Private Sub btnFillSuper_Click()
-    txtEmpID.Text = "SA001"
-    txtAccessCode.Text = "1001"
-    lblMessage.Caption = ""
+    FillSample "SA001", "1001"
 End Sub
 
 Private Sub btnFillAdmin_Click()
-    txtEmpID.Text = "AD010"
-    txtAccessCode.Text = "2001"
-    lblMessage.Caption = ""
+    FillSample "AD010", "2001"
+End Sub
+
+Private Sub btnFillLead_Click()
+    FillSample "LD200", "4001"
 End Sub
 
 Private Sub btnFillUser_Click()
-    txtEmpID.Text = "EN1042"
-    txtAccessCode.Text = "3001"
+    FillSample "EN1042", "3001"
+End Sub
+
+Private Sub FillSample(ByVal empId As String, ByVal code As String)
+    txtEmpID.Text = empId
+    txtAccessCode.Text = code
     lblMessage.Caption = ""
 End Sub
 
 Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)
-    If CloseMode = vbFormControlMenu Then
-        IMS_SignOut
-        Me.Hide
-        Cancel = True
-    End If
+    If CloseMode = vbFormControlMenu Then IMS_SignOut
 End Sub

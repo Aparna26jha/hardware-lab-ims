@@ -16,7 +16,7 @@ Public Function IMS_TryLogin(ByVal empId As String, ByVal accessCode As String) 
     accessCode = Trim$(accessCode)
 
     If empId = "" Or accessCode = "" Then
-        gLastError = "Enter an employee ID and a lab access code."
+        gLastError = "Enter your alias ID and lab access code."
         Exit Function
     End If
 
@@ -30,7 +30,7 @@ Public Function IMS_TryLogin(ByVal empId As String, ByVal accessCode As String) 
         "SELECT [EmpID], [EmpName], [Role], [AccessCode], [Active], [Approval] FROM [User_Directory] WHERE [EmpID]=?", _
         Array(empId))
     If row Is Nothing Then
-        gLastError = "Employee ID or access code is not recognized."
+        gLastError = "Alias ID or access code is not recognized."
         Exit Function
     End If
     Dim approval As String
@@ -49,7 +49,7 @@ Public Function IMS_TryLogin(ByVal empId As String, ByVal accessCode As String) 
         Exit Function
     End If
     If Not IMS_AccessCodeMatches(accessCode, CStr(row("AccessCode"))) Then
-        gLastError = "Employee ID or access code is not recognized."
+        gLastError = "Alias ID or access code is not recognized."
         Exit Function
     End If
     If Not IMS_IsListed(CStr(row("Role")), IMS_RoleList()) Then
@@ -180,7 +180,7 @@ Public Function IMS_ListUsers() As Variant
     On Error GoTo Fail
     Set rows = IMS_FetchDicts( _
         "SELECT [EmpID], [EmpName], [Role], [Active], [Approval], [RequestedRole], [LeadID], [Email] " & _
-        "FROM [User_Directory] ORDER BY [EmpID]")
+        "FROM [User_Directory] ORDER BY IIf([Approval]='Pending', 0, 1), [EmpID]")
     If rows.Count = 0 Then
         IMS_ListUsers = Empty
         Exit Function
@@ -346,6 +346,127 @@ Fail:
     gLastError = "The directory row did not save. " & Err.Description
 End Function
 
+' Requests waiting for approval. Columns: alias, name, requested role.
+Public Function IMS_PendingRequests() As Variant
+    Dim rows As Collection
+    Dim data As Variant
+    Dim r As Long
+    Dim d As Object
+    gLastError = ""
+    IMS_PendingRequests = Empty
+    If Not IMS_IsSuperRole(gRole) Then Exit Function
+    On Error GoTo Fail
+    Set rows = IMS_FetchDicts( _
+        "SELECT [EmpID], [EmpName], [RequestedRole] FROM [User_Directory] " & _
+        "WHERE [Approval]='Pending' ORDER BY [EmpID]")
+    If rows.Count = 0 Then Exit Function
+    ReDim data(1 To rows.Count, 1 To 3)
+    For r = 1 To rows.Count
+        Set d = rows(r)
+        data(r, 1) = CStr(d("EmpID") & "")
+        data(r, 2) = CStr(d("EmpName") & "")
+        data(r, 3) = CStr(d("RequestedRole") & "")
+    Next r
+    IMS_PendingRequests = data
+    Exit Function
+Fail:
+    gLastError = "Could not read access requests. " & Err.Description
+End Function
+
+' The signed-in person's own record. Keys: EmpID, EmpName, Role, Email, Lead.
+Public Function IMS_GetMyAccount() As Object
+    Dim row As Object
+    Dim lead As Object
+    Dim info As Object
+    Dim leadId As String
+    gLastError = ""
+    If gEmpID = "" Then
+        gLastError = "Sign in first."
+        Exit Function
+    End If
+    On Error GoTo Fail
+    Set row = IMS_FetchOne( _
+        "SELECT [EmpID], [EmpName], [Role], [Email], [LeadID] FROM [User_Directory] WHERE [EmpID]=?", _
+        Array(gEmpID))
+    If row Is Nothing Then
+        gLastError = "Your account was not found."
+        Exit Function
+    End If
+    Set info = CreateObject("Scripting.Dictionary")
+    info.CompareMode = 1
+    info("EmpID") = CStr(row("EmpID") & "")
+    info("EmpName") = CStr(row("EmpName") & "")
+    info("Role") = CStr(row("Role") & "")
+    info("Email") = CStr(row("Email") & "")
+    leadId = UCase$(Trim$(CStr(row("LeadID") & "")))
+    info("Lead") = ""
+    If leadId <> "" Then
+        Set lead = IMS_FetchOne("SELECT [EmpName] FROM [User_Directory] WHERE [EmpID]=?", Array(leadId))
+        If lead Is Nothing Then
+            info("Lead") = leadId
+        Else
+            info("Lead") = leadId & "  " & CStr(lead("EmpName") & "")
+        End If
+    End If
+    Set IMS_GetMyAccount = info
+    Exit Function
+Fail:
+    gLastError = "Could not read your account. " & Err.Description
+End Function
+
+Public Function IMS_ChangeAccessCode( _
+    ByVal currentCode As String, _
+    ByVal newCode As String, _
+    ByVal confirmCode As String) As Boolean
+
+    Dim row As Object
+    Dim conn As Object
+    gLastError = ""
+    If gEmpID = "" Then
+        gLastError = "Sign in first."
+        Exit Function
+    End If
+    currentCode = Trim$(currentCode)
+    newCode = Trim$(newCode)
+    If currentCode = "" Then
+        gLastError = "Enter your current access code."
+        Exit Function
+    End If
+    If Len(newCode) < 4 Or Len(newCode) > 32 Then
+        gLastError = "The new access code must be 4 to 32 characters."
+        Exit Function
+    End If
+    If newCode <> Trim$(confirmCode) Then
+        gLastError = "The new code and the confirmation do not match."
+        Exit Function
+    End If
+    If newCode = currentCode Then
+        gLastError = "Choose a new code that differs from the current one."
+        Exit Function
+    End If
+
+    On Error GoTo Fail
+    Set row = IMS_FetchOne("SELECT [AccessCode] FROM [User_Directory] WHERE [EmpID]=?", Array(gEmpID))
+    If row Is Nothing Then
+        gLastError = "Your account was not found."
+        Exit Function
+    End If
+    If Not IMS_AccessCodeMatches(currentCode, CStr(row("AccessCode") & "")) Then
+        gLastError = "The current access code is not correct."
+        Exit Function
+    End If
+    Set conn = IMS_Connect()
+    IMS_ExecOn conn, _
+        "UPDATE [User_Directory] SET [AccessCode]=? WHERE [EmpID]=?", _
+        Array(IMS_HashAccessCode(newCode), gEmpID)
+    IMS_Disconnect conn
+    IMS_ChangeAccessCode = True
+    Exit Function
+Fail:
+    gLastError = "The access code did not change. " & Err.Description
+    IMS_Disconnect conn
+End Function
+
 Public Sub IMS_SignOut()
     gEmpID = ""
     gEmpName = ""
@@ -360,9 +481,9 @@ Private Function AccountStatus(ByVal d As Object) As String
     ElseIf approval = "REJECTED" Then
         AccountStatus = "Rejected"
     ElseIf FlagOn(d("Active")) Then
-        AccountStatus = "Yes"
+        AccountStatus = "Active"
     Else
-        AccountStatus = "No"
+        AccountStatus = "Inactive"
     End If
 End Function
 

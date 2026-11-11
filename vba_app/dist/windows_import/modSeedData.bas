@@ -5,7 +5,7 @@ Option Explicit
 ' Re-run the script after editing the JSON. Do not hand-edit this file.
 
 Public Function SeedUsers() As Variant
-    Dim data(1 To 5, 1 To 9) As Variant
+    Dim data(1 To 6, 1 To 9) As Variant
     data(1, 1) = "SA001"
     data(1, 2) = "Sample Super Admin"
     data(1, 3) = "Super Admin"
@@ -51,11 +51,20 @@ Public Function SeedUsers() As Variant
     data(5, 7) = "Approved"
     data(5, 8) = "User"
     data(5, 9) = "LD200"
+    data(6, 1) = "EN2301"
+    data(6, 2) = "Sample Requesting Engineer"
+    data(6, 3) = "User"
+    data(6, 4) = "3003"
+    data(6, 5) = False
+    data(6, 6) = "en2301@lab.example"
+    data(6, 7) = "Pending"
+    data(6, 8) = "User"
+    data(6, 9) = ""
     SeedUsers = data
 End Function
 
 Public Function SeedDirectory() As Variant
-    Dim data(1 To 6, 1 To 3) As Variant
+    Dim data(1 To 7, 1 To 3) As Variant
     data(1, 1) = "SA001"
     data(1, 2) = "sa001@lab.example"
     data(1, 3) = "Sample Super Admin"
@@ -74,6 +83,9 @@ Public Function SeedDirectory() As Variant
     data(6, 1) = "EN2200"
     data(6, 2) = "en2200@lab.example"
     data(6, 3) = "Sample New Engineer"
+    data(7, 1) = "EN2301"
+    data(7, 2) = "en2301@lab.example"
+    data(7, 3) = "Sample Requesting Engineer"
     SeedDirectory = data
 End Function
 
@@ -135,7 +147,7 @@ Public Function SeedAssets() As Variant
     data(4, 9) = "100GbE adapter held for rework"
     data(4, 10) = "PO-AMD-23880"
     data(4, 11) = "2026-05-19"
-    data(4, 12) = "2029-05-19"
+    data(4, 12) = "2026-12-01"
     data(4, 13) = ""
     data(4, 14) = ""
     data(4, 15) = "Under Maintenance"
@@ -147,10 +159,10 @@ Public Function SeedAssets() As Variant
     data(5, 6) = "AMD"
     data(5, 7) = "HDT+"
     data(5, 8) = "FW 9.4"
-    data(5, 9) = "HDT hardware debugger pod"
+    data(5, 9) = "HDT hardware debugger pod, calibration due"
     data(5, 10) = "PO-AMD-19002"
     data(5, 11) = "2025-11-03"
-    data(5, 12) = "2028-11-03"
+    data(5, 12) = "2026-10-31"
     data(5, 13) = ""
     data(5, 14) = ""
     data(5, 15) = "Available in Lab"

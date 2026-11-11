@@ -5,6 +5,7 @@ Option Explicit
 '   IMS_Start               open the sign-in form
 '   IMS_InitializeBackend   create the shared database (also in modInitDatabase)
 '   IMS_EditBackendPath     point this workbook at the share
+'   IMS_EditBackupFolder    choose the separate folder for backups
 '   IMS_TestConnection      read one row and report the result
 
 Public Sub IMS_Start()
@@ -42,6 +43,30 @@ Public Sub IMS_EditBackendPath()
     gBackendPath = entered
     ThisWorkbook.Save
     MsgBox "Saved backend path:" & vbCrLf & entered, vbInformation, IMS_APP_NAME
+    Exit Sub
+Fail:
+    MsgBox Err.Description, vbCritical, IMS_APP_NAME
+End Sub
+
+Public Sub IMS_EditBackupFolder()
+    Dim entered As String
+    Dim currentPath As String
+    Dim target As Range
+    On Error Resume Next
+    Set target = ThisWorkbook.Names("BackupFolder").RefersToRange
+    On Error GoTo Fail
+    If target Is Nothing Then
+        ThisWorkbook.Names.Add Name:="BackupFolder", RefersTo:="=Config!$B$3"
+        Set target = ThisWorkbook.Names("BackupFolder").RefersToRange
+        ThisWorkbook.Worksheets("Config").Range("A3").Value = "BackupFolder"
+    End If
+    currentPath = CStr(target.Value)
+    entered = Trim$(InputBox("Folder for database backups. Use a different folder from the database.", "Backup folder", currentPath))
+    If entered = "" Then Exit Sub
+    target.Value = entered
+    gBackupPath = entered
+    ThisWorkbook.Save
+    MsgBox "Saved backup folder:" & vbCrLf & entered, vbInformation, IMS_APP_NAME
     Exit Sub
 Fail:
     MsgBox Err.Description, vbCritical, IMS_APP_NAME
